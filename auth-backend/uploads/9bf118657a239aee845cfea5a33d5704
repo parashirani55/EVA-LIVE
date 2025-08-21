@@ -1,0 +1,51 @@
+id,upload_id,invoice_no,advisor,advisor_canonical,invoice_date,hours_presented,hours_sold,ro_id,row_hash,raw_payload,org
+1,5,2001,Sam,Sam,19-07-2025,5.4,1.6,RO230,hash1,"{'Invoice #': 2001, 'Advisor': 'Sam', 'Invoice Date': '2025-07-19'}",Benz auto house
+2,5,2002,Sam,Sam,10-07-2025,7.5,6.8,RO226,hash2,"{'Invoice #': 2002, 'Advisor': 'Sam', 'Invoice Date': '2025-07-10'}",Benz auto house
+3,5,2003,Robert,Robert,04-07-2025,3.3,2.5,RO200,hash3,"{'Invoice #': 2003, 'Advisor': 'Robert', 'Invoice Date': '2025-07-04'}",Benz auto house
+4,5,2004,Robert,Robert,19-07-2025,2.1,0.3,RO233,hash4,"{'Invoice #': 2004, 'Advisor': 'Robert', 'Invoice Date': '2025-07-19'}",Benz auto house
+5,5,2005,Tina,Tina,23-07-2025,3.9,1.2,RO204,hash5,"{'Invoice #': 2005, 'Advisor': 'Tina', 'Invoice Date': '2025-07-23'}",Benz auto house
+6,5,2006,Sam,Sam,01-07-2025,5.5,5.4,RO265,hash6,"{'Invoice #': 2006, 'Advisor': 'Sam', 'Invoice Date': '2025-07-01'}",Benz auto house
+7,5,2007,Robert,Robert,07-07-2025,2.9,1.7,RO258,hash7,"{'Invoice #': 2007, 'Advisor': 'Robert', 'Invoice Date': '2025-07-07'}",Benz auto house
+8,5,2008,Liam,Liam,24-07-2025,4.5,2.3,RO259,hash8,"{'Invoice #': 2008, 'Advisor': 'Liam', 'Invoice Date': '2025-07-24'}",Benz auto house
+9,5,2009,Robert,Robert,27-07-2025,5.8,3.1,RO250,hash9,"{'Invoice #': 2009, 'Advisor': 'Robert', 'Invoice Date': '2025-07-27'}",Benz auto house
+10,5,2010,Tina,Tina,04-07-2025,1.8,0.7,RO242,hash10,"{'Invoice #': 2010, 'Advisor': 'Tina', 'Invoice Date': '2025-07-04'}",Benz auto house
+11,5,2011,Robert,Robert,28-07-2025,2,0.9,RO281,hash11,"{'Invoice #': 2011, 'Advisor': 'Robert', 'Invoice Date': '2025-07-28'}",Benz auto house
+12,5,2012,Olivia,Olivia,14-07-2025,3.5,3.4,RO231,hash12,"{'Invoice #': 2012, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-14'}",Benz auto house
+13,5,2013,Liam,Liam,06-08-2025,1.8,0.1,RO281,hash13,"{'Invoice #': 2013, 'Advisor': 'Liam', 'Invoice Date': '2025-08-06'}",Benz auto house
+14,5,2014,Olivia,Olivia,14-07-2025,3.6,2.3,RO275,hash14,"{'Invoice #': 2014, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-14'}",Benz auto house
+15,5,2015,Sam,Sam,10-07-2025,1.4,1,RO283,hash15,"{'Invoice #': 2015, 'Advisor': 'Sam', 'Invoice Date': '2025-07-10'}",Benz auto house
+16,5,2016,Robert,Robert,08-07-2025,6.4,3,RO252,hash16,"{'Invoice #': 2016, 'Advisor': 'Robert', 'Invoice Date': '2025-07-08'}",Benz auto house
+17,5,2017,Olivia,Olivia,11-07-2025,7.1,5.6,RO271,hash17,"{'Invoice #': 2017, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-11'}",Benz auto house
+18,5,2018,Olivia,Olivia,05-08-2025,7.2,5.7,RO281,hash18,"{'Invoice #': 2018, 'Advisor': 'Olivia', 'Invoice Date': '2025-08-05'}",Benz auto house
+19,5,2019,Olivia,Olivia,05-07-2025,5.8,3.6,RO282,hash19,"{'Invoice #': 2019, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-05'}",Benz auto house
+20,5,2020,Tina,Tina,04-08-2025,4.2,4.2,RO230,hash20,"{'Invoice #': 2020, 'Advisor': 'Tina', 'Invoice Date': '2025-08-04'}",Benz auto house
+21,5,2021,Liam,Liam,20-07-2025,6.3,0.9,RO270,hash21,"{'Invoice #': 2021, 'Advisor': 'Liam', 'Invoice Date': '2025-07-20'}",Benz auto house
+22,5,2022,Sam,Sam,21-07-2025,5.6,2.7,RO234,hash22,"{'Invoice #': 2022, 'Advisor': 'Sam', 'Invoice Date': '2025-07-21'}",Benz auto house
+23,5,2023,Tina,Tina,06-08-2025,2.3,0.9,RO201,hash23,"{'Invoice #': 2023, 'Advisor': 'Tina', 'Invoice Date': '2025-08-06'}",Benz auto house
+24,5,2024,Sam,Sam,25-07-2025,6.5,6,RO223,hash24,"{'Invoice #': 2024, 'Advisor': 'Sam', 'Invoice Date': '2025-07-25'}",Benz auto house
+25,5,2025,Olivia,Olivia,04-08-2025,1.5,1.1,RO292,hash25,"{'Invoice #': 2025, 'Advisor': 'Olivia', 'Invoice Date': '2025-08-04'}",Benz auto house
+26,5,2026,Liam,Liam,09-07-2025,4.2,3.1,RO288,hash26,"{'Invoice #': 2026, 'Advisor': 'Liam', 'Invoice Date': '2025-07-09'}",Benz auto house
+27,5,2027,Sam,Sam,27-07-2025,6.9,1.3,RO277,hash27,"{'Invoice #': 2027, 'Advisor': 'Sam', 'Invoice Date': '2025-07-27'}",Benz auto house
+28,5,2028,Sam,Sam,07-07-2025,5.9,2.3,RO220,hash28,"{'Invoice #': 2028, 'Advisor': 'Sam', 'Invoice Date': '2025-07-07'}",Benz auto house
+29,5,2029,Olivia,Olivia,15-07-2025,7.1,3.7,RO259,hash29,"{'Invoice #': 2029, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-15'}",Benz auto house
+30,5,2030,Sam,Sam,17-07-2025,7.7,4.6,RO292,hash30,"{'Invoice #': 2030, 'Advisor': 'Sam', 'Invoice Date': '2025-07-17'}",Benz auto house
+31,5,2031,Liam,Liam,01-07-2025,7.2,5.1,RO249,hash31,"{'Invoice #': 2031, 'Advisor': 'Liam', 'Invoice Date': '2025-07-01'}",Benz auto house
+32,5,2032,Robert,Robert,09-07-2025,2.6,0.4,RO201,hash32,"{'Invoice #': 2032, 'Advisor': 'Robert', 'Invoice Date': '2025-07-09'}",Benz auto house
+33,5,2033,Liam,Liam,30-07-2025,5,5,RO226,hash33,"{'Invoice #': 2033, 'Advisor': 'Liam', 'Invoice Date': '2025-07-30'}",Benz auto house
+34,5,2034,Liam,Liam,02-07-2025,1.5,1,RO223,hash34,"{'Invoice #': 2034, 'Advisor': 'Liam', 'Invoice Date': '2025-07-02'}",Benz auto house
+35,5,2035,Liam,Liam,13-07-2025,6.8,0.2,RO294,hash35,"{'Invoice #': 2035, 'Advisor': 'Liam', 'Invoice Date': '2025-07-13'}",Benz auto house
+36,5,2036,Olivia,Olivia,05-07-2025,2.6,1.4,RO274,hash36,"{'Invoice #': 2036, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-05'}",Benz auto house
+37,5,2037,Olivia,Olivia,09-07-2025,5.2,3.8,RO279,hash37,"{'Invoice #': 2037, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-09'}",Benz auto house
+38,5,2038,Olivia,Olivia,24-07-2025,6.1,2.5,RO275,hash38,"{'Invoice #': 2038, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-24'}",Benz auto house
+39,5,2039,Robert,Robert,10-08-2025,3.3,2.7,RO222,hash39,"{'Invoice #': 2039, 'Advisor': 'Robert', 'Invoice Date': '2025-08-10'}",Benz auto house
+40,5,2040,Sam,Sam,07-08-2025,6.6,2.9,RO270,hash40,"{'Invoice #': 2040, 'Advisor': 'Sam', 'Invoice Date': '2025-08-07'}",Benz auto house
+41,5,2041,Liam,Liam,22-07-2025,4.9,0.4,RO205,hash41,"{'Invoice #': 2041, 'Advisor': 'Liam', 'Invoice Date': '2025-07-22'}",Benz auto house
+42,5,2042,Sam,Sam,26-07-2025,4.9,4.1,RO282,hash42,"{'Invoice #': 2042, 'Advisor': 'Sam', 'Invoice Date': '2025-07-26'}",Benz auto house shop 2
+43,5,2043,Sam,Sam,09-07-2025,5.2,5.1,RO238,hash43,"{'Invoice #': 2043, 'Advisor': 'Sam', 'Invoice Date': '2025-07-09'}",Benz auto house shop 2
+44,5,2044,Liam,Liam,10-08-2025,7.7,0,RO289,hash44,"{'Invoice #': 2044, 'Advisor': 'Liam', 'Invoice Date': '2025-08-10'}",Benz auto house shop 2
+45,5,2045,Robert,Robert,19-07-2025,6.3,1.3,RO220,hash45,"{'Invoice #': 2045, 'Advisor': 'Robert', 'Invoice Date': '2025-07-19'}",Benz auto house shop 2
+46,5,2046,Olivia,Olivia,15-07-2025,4.9,3.2,RO241,hash46,"{'Invoice #': 2046, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-15'}",Benz auto house shop 2
+47,5,2047,Olivia,Olivia,22-07-2025,6.6,3.7,RO226,hash47,"{'Invoice #': 2047, 'Advisor': 'Olivia', 'Invoice Date': '2025-07-22'}",Benz auto house shop 2
+48,5,2048,Tina,Tina,05-07-2025,3.8,0.1,RO273,hash48,"{'Invoice #': 2048, 'Advisor': 'Tina', 'Invoice Date': '2025-07-05'}",Benz auto house shop 2
+49,5,2049,Robert,Robert,05-07-2025,2.9,1.1,RO245,hash49,"{'Invoice #': 2049, 'Advisor': 'Robert', 'Invoice Date': '2025-07-05'}",Benz auto house shop 2
+50,5,2050,Robert,Robert,23-07-2025,5.6,5.5,RO254,hash50,"{'Invoice #': 2050, 'Advisor': 'Robert', 'Invoice Date': '2025-07-23'}",Benz auto house shop 2

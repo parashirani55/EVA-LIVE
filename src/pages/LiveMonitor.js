@@ -1,31 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { Phone, Clock, User, MessageSquare, Activity, PhoneCall, Headphones, Volume2 } from 'lucide-react';
 
-const initialLiveCalls = [
-    {
-        id: 1,
-        customer: 'Samantha Rose',
-        phone: '+1 555-111-2233',
-        startedAt: new Date(),
-        aiMessage: 'Hi Samantha, this is Royal Aire AI calling about your plan renewal.',
-        status: 'Speaking',
-        campaign: 'Q3 Renewal Campaign',
-    },
-    {
-        id: 2,
-        customer: 'Marcus Lin',
-        phone: '+1 555-444-8899',
-        startedAt: new Date(Date.now() - 180000), // 3 minutes ago
-        aiMessage: 'Hello Marcus, I\'d like to check in on your recent service experience.',
-        status: 'Listening',
-        campaign: 'Customer Feedback',
-    },
-];
-
 function LiveMonitor() {
-    const [liveCalls, setLiveCalls] = useState(initialLiveCalls);
+    const [liveCalls, setLiveCalls] = useState([]);
     const [tick, setTick] = useState(0);
 
+    // Fetch active calls from backend
+    const fetchLiveCalls = async () => {
+        try {
+            const res = await fetch('http://localhost:5000/api/active-calls'); // Adjust URL if needed
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            const data = await res.json();
+            setLiveCalls(data);
+        } catch (error) {
+            console.error('Error fetching live calls:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchLiveCalls(); // Initial fetch
+        const interval = setInterval(fetchLiveCalls, 5000); // Refresh every 5s
+        return () => clearInterval(interval);
+    }, []);
+
+    // Timer for live duration update
     useEffect(() => {
         const timer = setInterval(() => {
             setTick((t) => t + 1);

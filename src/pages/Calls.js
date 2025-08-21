@@ -1,79 +1,126 @@
-import React, { useState } from 'react';
-import { CheckCircle, XCircle, Clock, Eye, X, Phone } from 'lucide-react';
-
-const mockCalls = [
-    {
-        id: 1,
-        customer: 'Alice Johnson',
-        phone: '+1 555-123-4567',
-        time: '2025-08-05 10:15 AM',
-        duration: '2m 34s',
-        status: 'Answered',
-        transcript: [
-            { from: 'AI', text: 'Hi Alice, this is an automated call about your service.' },
-            { from: 'Alice', text: "Okay, I'm listening." },
-            { from: 'AI', text: 'Would you like to renew your plan today?' },
-        ],
-    },
-    {
-        id: 2,
-        customer: 'Bob Smith',
-        phone: '+1 555-987-6543',
-        time: '2025-08-05 10:22 AM',
-        duration: '0m 00s',
-        status: 'No Answer',
-        transcript: [],
-    },
-    {
-        id: 3,
-        customer: 'Carol White',
-        phone: '+1 555-456-7890',
-        time: '2025-08-05 10:30 AM',
-        duration: '4m 12s',
-        status: 'Answered',
-        transcript: [
-            { from: 'AI', text: "Hello Carol, I'm calling regarding your recent inquiry." },
-            { from: 'Carol', text: "Yes, I'm interested in learning more." },
-        ],
-    },
-];
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, XCircle, Clock, Eye, X, Phone, Activity } from 'lucide-react';
 
 function Calls() {
+    const [calls, setCalls] = useState([]); // past call history
+    const [liveCalls, setLiveCalls] = useState([]); // ongoing calls
     const [selectedCall, setSelectedCall] = useState(null);
 
-    const getStatusConfig = (status) => {
-        switch (status) {
-            case 'Answered':
-                return { color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle };
-            case 'No Answer':
-                return { color: 'bg-amber-100 text-amber-700', icon: Clock };
-            case 'Failed':
-                return { color: 'bg-red-100 text-red-700', icon: XCircle };
-            default:
-                return { color: 'bg-slate-100 text-slate-700', icon: Clock };
+    // Fetch call history
+    const fetchCallHistory = async () => {
+        try {
+            const res = await fetch('/api/call-history');
+            const data = await res.json();
+            setCalls(data);
+        } catch (err) {
+            console.error('Error fetching call history', err);
         }
     };
 
+    // Fetch live calls
+    const fetchLiveCalls = async () => {
+        try {
+            const res = await fetch('/api/active-calls');
+            const data = await res.json();
+            setLiveCalls(data);
+        } catch (err) {
+            console.error('Error fetching live calls', err);
+        }
+    };
+
+    // Fetch both on mount
+    useEffect(() => {
+        fetchCallHistory();
+        fetchLiveCalls();
+        const interval = setInterval(fetchLiveCalls, 5000); // update live calls every 5s
+        return () => clearInterval(interval);
+    }, []);
+
+    // Map Twilio status → UI config
+    const getStatusConfig = (status) => {
+        switch (status) {
+            case 'queued':
+            case 'ringing':
+                return { bg: 'bg-amber-100', text: 'text-amber-700', icon: Clock };
+            case 'in-progress':
+                return { bg: 'bg-blue-100', text: 'text-blue-700', icon: Activity };
+            case 'completed':
+                return { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle };
+            case 'failed':
+            case 'busy':
+            case 'no-answer':
+                return { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle };
+            default:
+                return { bg: 'bg-slate-100', text: 'text-slate-700', icon: Clock };
+        }
+    };
+
+    // Format duration as mm:ss
+    const formatDuration = (seconds) => {
+        if (!seconds || seconds <= 0) return '00:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+
+    // Live elapsed time (mm:ss)
+    const getElapsedTime = (startTime) => {
+        const seconds = Math.floor((Date.now() - new Date(startTime)) / 1000);
+        return formatDuration(seconds);
+    };
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 p-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Call Logs</h1>
-                    <p className="text-slate-600 mt-1">View and analyze your call history</p>
+                    <h1 className="text-3xl font-bold text-slate-900">Call Logs & Live Monitor</h1>
+                    <p className="text-slate-600 mt-1">View past calls and monitor active calls in real-time</p>
                 </div>
-                <div className="flex items-center space-x-3">
-                    <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors">
-                        Filter
-                    </button>
-                    <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors">
-                        Export
-                    </button>
-                </div>
+                {/* <button
+                    onClick={() => { fetchCallHistory(); fetchLiveCalls(); }}
+                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                    Refresh
+                </button> */}
             </div>
 
-            {/* Calls Table */}
+            {/* Live Calls Section */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <h2 className="text-xl font-semibold text-slate-900 mb-4">Active Calls</h2>
+                {liveCalls.length === 0 ? (
+                    <p className="text-slate-500">No active calls right now</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {liveCalls.map((call) => {
+                            const { bg, text, icon: StatusIcon } = getStatusConfig(call.status);
+                            return (
+                                <div key={call.id} className={`p-4 rounded-2xl border ${bg} ${text}`}>
+                                    <div className="flex justify-between mb-2">
+                                        <div>
+                                            <p className="font-semibold">{call.customer}</p>
+                                            <p className="text-sm">{call.phone}</p>
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            <StatusIcon className="w-4 h-4" />
+                                            <span className="text-xs">{call.status}</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm">Campaign: {call.campaign}</p>
+                                    <p className="text-sm">Duration: {getElapsedTime(call.started_at)}</p>
+                                    <p className="text-sm italic mt-2">AI Message: "{call.ai_message}"</p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Past Calls Section */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-6 border-b border-slate-200">
+                    <h2 className="text-xl font-semibold text-slate-900">Call History</h2>
+                </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead className="bg-slate-50 border-b border-slate-200">
@@ -87,16 +134,16 @@ function Calls() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {mockCalls.map((call) => {
-                                const { color, icon: StatusIcon } = getStatusConfig(call.status);
+                            {calls.map((call) => {
+                                const { bg, text, icon: StatusIcon } = getStatusConfig(call.status);
                                 return (
                                     <tr key={call.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 font-medium text-slate-900">{call.customer}</td>
                                         <td className="px-6 py-4 text-slate-600">{call.phone}</td>
-                                        <td className="px-6 py-4 text-slate-600">{call.time}</td>
-                                        <td className="px-6 py-4 text-slate-600">{call.duration}</td>
+                                        <td className="px-6 py-4 text-slate-600">{new Date(call.started_at).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-slate-600">{formatDuration(call.duration)}</td>
                                         <td className="px-6 py-4">
-                                            <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium ${color}`}>
+                                            <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium ${bg} ${text}`}>
                                                 <StatusIcon className="w-3 h-3" />
                                                 <span>{call.status}</span>
                                             </div>
@@ -126,7 +173,7 @@ function Calls() {
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900">Call Transcript</h2>
                                 <p className="text-slate-600 mt-1">
-                                    {selectedCall.customer} • {selectedCall.time}
+                                    {selectedCall.customer} • {new Date(selectedCall.started_at).toLocaleString()}
                                 </p>
                             </div>
                             <button
@@ -137,25 +184,42 @@ function Calls() {
                             </button>
                         </div>
                         <div className="p-6 max-h-96 overflow-y-auto">
-                            {selectedCall.transcript.length > 0 ? (
-                                <div className="space-y-4">
-                                    {selectedCall.transcript.map((line, index) => (
-                                        <div
-                                            key={index}
-                                            className={`flex ${line.from === 'AI' ? 'justify-start' : 'justify-end'}`}
-                                        >
-                                            <div
-                                                className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${line.from === 'AI'
-                                                        ? 'bg-blue-100 text-blue-900'
-                                                        : 'bg-slate-100 text-slate-900'
-                                                    }`}
-                                            >
-                                                <div className="text-xs font-medium mb-1 opacity-70">{line.from}</div>
-                                                <div className="text-sm">{line.text}</div>
-                                            </div>
+                            {selectedCall.transcript ? (
+                                (() => {
+                                    let transcriptArray;
+                                    try { transcriptArray = JSON.parse(selectedCall.transcript); } 
+                                    catch { transcriptArray = []; }
+                                    return transcriptArray.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {transcriptArray.map((line, index) => (
+                                                <div
+                                                    key={index}
+                                                    className={`flex ${line.from === 'AI' ? 'justify-start' : 'justify-end'}`}
+                                                >
+                                                    <div
+                                                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                                                            line.from === 'AI'
+                                                                ? 'bg-blue-100 text-blue-900'
+                                                                : 'bg-slate-100 text-slate-900'
+                                                        }`}
+                                                    >
+                                                        <div className="text-xs font-medium mb-1 opacity-70">
+                                                            {line.from}
+                                                        </div>
+                                                        <div className="text-sm">{line.text}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    ) : (
+                                        <div className="text-center py-12">
+                                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Phone className="w-8 h-8 text-slate-400" />
+                                            </div>
+                                            <p className="text-slate-500">No transcript available for this call</p>
+                                        </div>
+                                    );
+                                })()
                             ) : (
                                 <div className="text-center py-12">
                                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">

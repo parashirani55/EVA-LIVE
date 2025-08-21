@@ -1,109 +1,119 @@
-import React from 'react';
-import { Phone, CheckCircle, XCircle, Clock } from 'lucide-react';
-import CallForm from '../components/CallForm';
+import React, { useEffect, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
+import { Phone, Clock, CheckCircle, XCircle } from "lucide-react";
 
-function Dashboard() {
-    const stats = [
-        {
-            title: 'Total Calls Today',
-            value: 152,
-            change: '+12%',
-            icon: Phone,
-            color: 'from-blue-500 to-blue-600',
-            bgColor: 'bg-blue-50',
-            textColor: 'text-blue-700'
-        },
-        {
-            title: 'Answered Calls',
-            value: 89,
-            change: '+8%',
-            icon: CheckCircle,
-            color: 'from-emerald-500 to-emerald-600',
-            bgColor: 'bg-emerald-50',
-            textColor: 'text-emerald-700'
-        },
-        {
-            title: 'Failed Calls',
-            value: 34,
-            change: '-5%',
-            icon: XCircle,
-            color: 'from-red-500 to-red-600',
-            bgColor: 'bg-red-50',
-            textColor: 'text-red-700'
-        },
-        {
-            title: 'Avg Duration',
-            value: '3m 21s',
-            change: '+2%',
-            icon: Clock,
-            color: 'from-amber-500 to-amber-600',
-            bgColor: 'bg-amber-50',
-            textColor: 'text-amber-700'
-        },
-    ];
+const Dashboard = () => {
+  const [stats, setStats] = useState([]);
+  const [callData, setCallData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    return (
-        <div className="space-y-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Dashboard Overview</h1>
-                    <p className="text-slate-600 mt-1">Monitor your AI voice campaigns performance</p>
+  const iconMap = { Phone, Clock, CheckCircle, XCircle };
+
+  useEffect(() => {
+    const getDashboardData = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/dashboard-stats");
+        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+
+        const data = await res.json();
+        console.log("API Response:", data);
+
+        // If backend sends { stats: [], callData: [] }
+        if (data.stats && Array.isArray(data.stats)) {
+          setStats(data.stats);
+          setCallData(data.callData && data.callData.length > 0
+            ? data.callData
+            : getDummyChartData());
+        }
+        // If backend sends just an array of stats
+        else if (Array.isArray(data)) {
+          setStats(data);
+          setCallData(getDummyChartData());
+        }
+        else {
+          console.warn("Unexpected API format:", data);
+          setStats([]);
+          setCallData(getDummyChartData());
+        }
+
+      } catch (error) {
+        console.error("Error fetching dashboard:", error);
+        setStats([]);
+        setCallData(getDummyChartData());
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getDashboardData();
+  }, []);
+
+  // Fallback dummy chart
+  const getDummyChartData = () => ([
+    { name: "Mon", calls: 80 },
+    { name: "Tue", calls: 110 },
+    { name: "Wed", calls: 95 },
+    { name: "Thu", calls: 130 },
+    { name: "Fri", calls: 120 },
+    { name: "Sat", calls: 90 },
+    { name: "Sun", calls: 70 }
+  ]);
+
+  if (loading) return <p className="p-6">Loading...</p>;
+  if (!stats.length) return <p className="p-6">No data found</p>;
+
+  return (
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Eva Dashboard Overview</h1>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => {
+          const Icon = iconMap[stat.icon] || Phone;
+          return (
+            <div key={index} className="bg-white rounded-2xl p-5 shadow hover:shadow-lg transition">
+              <div className="flex items-center">
+                <div className={`p-3 rounded-xl bg-gradient-to-r ${stat.color || "from-blue-500 to-blue-600"} text-white`}>
+                  <Icon size={24} />
                 </div>
-                <div className="flex items-center space-x-3">
-                    <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors">
-                        Export Report
-                    </button>
-                    <button className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-shadow">
-                        New Campaign
-                    </button>
+                <div className="ml-4">
+                  <p className="text-sm text-gray-500">{stat.title}</p>
+                  <p className="text-xl font-semibold text-gray-800">{stat.value}</p>
+                  <p className={`text-sm ${stat.change?.includes("+") ? "text-green-500" : "text-red-500"}`}>
+                    {stat.change}
+                  </p>
                 </div>
+              </div>
             </div>
+          );
+        })}
+      </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                {stats.map((stat, index) => (
-                    <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                                <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
-                            </div>
-                            <span className={`text-sm font-medium ${stat.change.startsWith('+') ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {stat.change}
-                            </span>
-                        </div>
-                        <div className="mt-4">
-                            <h3 className="text-sm font-medium text-slate-600">{stat.title}</h3>
-                            <p className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Call Volume Trends</h3>
-                    <div className="h-64 bg-gradient-to-t from-blue-50 to-transparent rounded-xl flex items-end justify-center">
-                        <p className="text-slate-500">Chart visualization would go here</p>
-                    </div>
-                </div>
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Success Rate</h3>
-                    <div className="h-64 bg-gradient-to-t from-emerald-50 to-transparent rounded-xl flex items-center justify-center">
-                        <p className="text-slate-500">Success rate visualization</p>
-                    </div>
-                </div>
-            </div>
-            {/* Testing only */}
-            {/* <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <CallForm />
-            </div> */}
+      {/* Chart */}
+      {callData.length > 0 && (
+        <div className="mt-8 bg-white rounded-2xl p-6 shadow">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Weekly Call Activity</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={callData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip />
+              <Line type="monotone" dataKey="calls" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-
-
-
-    );
-}
+      )}
+    </div>
+  );
+};
 
 export default Dashboard;
