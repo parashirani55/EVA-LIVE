@@ -1,92 +1,133 @@
-EVA AI Voice Calling Portal
-===========================
+🚀 EVA AI Voice Calling Portal
 
-EVA is an AI-driven voice calling platform built with React.js (frontend) and Node.js (backend). 
-It allows real-time AI-powered two-way communication and full customization with Twilio integration.
+EVA is an AI-driven voice calling platform built with React.js (frontend) and Node.js (backend).
+It enables real-time AI-powered two-way voice communication with customizable Twilio integration.
 
-Features
---------
-- Real-time AI voice calling
-- User authentication (login/signup)
-- Custom Twilio configuration
-- NGROK support for local development
-- React frontend & Node.js backend architecture
+🌟 Features
 
-Project Structure
------------------
+🔊 Real-time AI voice calling
+
+🛡️ User authentication (signup/login)
+
+⚙️ Custom Twilio configuration
+
+🌐 NGROK support for local development
+
+💻 Modular React frontend & Node.js backend architecture
+
+🗂️ Project Structure
 EVA-AI-VOICE-CALLING-PORTAL/
-  frontend/         - React.js frontend
-  auth-backend/     - Node.js backend (with auth and API routes)
-  README.txt        - This documentation
+│
+├─ frontend/        # React.js frontend
+├─ auth-backend/    # Node.js backend with auth & API routes
+└─ README.md        # Project documentation
 
-Prerequisites
--------------
-- Node.js (v18+ recommended)
-- npm or yarn
-- Twilio account (for voice calls)
-- NGROK (for exposing backend)
-- OpenAI API key (for AI features)
+🛠 Prerequisites
 
-Setup & Installation
---------------------
-1. Clone the repository:
-   git clone https://github.com/parashirani55/EVA-AI-VOICE-CALLING-PORTAL.git
-   cd EVA-AI-VOICE-CALLING-PORTAL
+Node.js v18+
 
-2. Setup Backend:
-   cd auth-backend
-   npm install
+npm or yarn
 
-   Setup NGROK for WebSocket and reverse proxy:
-     npm install -g ngrok
-     ngrok authtoken YOUR_NGROK_AUTH_TOKEN
-   (Get your auth token by signing in on the ngrok website)
+Twilio account (for voice calls)
 
-   Start NGROK to expose your backend:
-     ngrok http 5000
+NGROK (for exposing backend)
 
-   Create a .env file with the following:
-     PORT=5000
-     NGROK_AUTH_TOKEN=your_ngrok_auth_token
-     TWILIO_ACCOUNT_SID=your_twilio_account_sid
-     TWILIO_AUTH_TOKEN=your_twilio_auth_token
-     TWILIO_PHONE_NUMBER=your_twilio_phone_number
-     OPENAI_API_KEY=your_openai_api_key
+OpenAI API key (for AI voice features)
 
-   Start backend:
-     npm run dev
+⚡ Getting Started
+1️⃣ Clone Repository
+git clone https://github.com/parashirani55/EVA-AI-VOICE-CALLING-PORTAL.git
+cd EVA-AI-VOICE-CALLING-PORTAL
 
-3. Setup Frontend:
-   cd ../frontend
-   npm install
-   npm start
+2️⃣ Backend Setup
+cd auth-backend
+npm install
 
-   Frontend will run on http://localhost:3000
+Create .env for Backend
+PORT=5000
+NGROK_AUTH_TOKEN=your_ngrok_auth_token
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_PHONE_NUMBER=your_twilio_phone_number
+OPENAI_API_KEY=your_openai_api_key
+NGROK_URL=http://xxxxxx.ngrok.io   # Update after starting ngrok
 
-Usage
------
-1. Signup or login via the frontend
-2. Configure Twilio settings if needed
-3. Start AI-powered voice calls through the dashboard
-4. Backend handles Twilio call routing
+3️⃣ NGROK Setup
 
-Notes
------
-- NGROK token must be valid to expose backend
-- Update Twilio credentials to avoid call errors
-- Supports two-way AI voice conversation
+Install NGROK globally:
 
-Tech Stack
-----------
-- Frontend: React.js, Axios
-- Backend: Node.js, Express, Twilio SDK, NGROK
-- Database: Optional (MongoDB/MySQL)
-- AI Integration: OpenAI (optional)
+npm install -g ngrok
 
-Contributing
-------------
-Fork the repo, make improvements, and submit PRs. Issues and suggestions welcome.
 
-Disclaimer
-----------
-For development and testing purposes only. Ensure Twilio account is in good standing to avoid charges.
+Get your Auth Token from NGROK Dashboard
+
+Set the Auth Token:
+
+ngrok authtoken YOUR_NGROK_AUTH_TOKEN
+
+
+Start NGROK:
+
+ngrok http 5000
+
+
+Update .env in backend and frontend with the NGROK URL:
+
+NGROK_URL=https://abc123.ngrok.io       # backend
+REACT_APP_BACKEND_URL=https://abc123.ngrok.io  # frontend
+
+
+⚠️ Tip: NGROK URL changes every time you restart. Update .env files each time.
+
+4️⃣ Start Backend
+npm run dev
+
+5️⃣ Frontend Setup
+cd ../frontend
+npm install
+
+Create .env for Frontend
+REACT_APP_BACKEND_URL=https://xxxxxx.ngrok.io   # NGROK backend URL
+REACT_APP_OPENAI_API_KEY=your_openai_api_key
+
+Start Frontend
+npm start
+
+
+Frontend runs at: http://localhost:3000
+
+🚀 Usage
+
+Sign up or log in via the frontend
+
+Configure Twilio settings if needed
+
+Start AI-powered voice calls from the dashboard
+
+Backend handles Twilio call routing automatically
+
+📝 Notes
+
+⚠️ NGROK URL changes after every restart. Update .env in both frontend and backend
+
+Ensure Twilio credentials are correct to avoid call failures
+
+Supports two-way AI voice conversations
+
+🧰 Tech Stack
+
+Frontend: React.js, Axios
+
+Backend: Node.js, Express, Twilio SDK, NGROK
+
+Database: Optional (MongoDB/MySQL)
+
+AI Integration: OpenAI
+
+🤝 Contributing
+
+Fork the repository, make improvements, and submit PRs. Issues and suggestions are welcome.
+
+⚠️ Disclaimer
+
+For development and testing purposes only. Ensure your Twilio account is in good standing to avoid unexpected charges.
