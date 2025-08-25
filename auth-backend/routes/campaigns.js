@@ -7,11 +7,12 @@ const csv = require('csv-parser');
 const db = require('../config/db'); // MySQL connection
 const authMiddleware = require('../middleware/authMiddleware');
 const twilio = require('twilio');
+const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 // Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../uploads');
+const uploadDir = path.join(__dirname, '../Uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
 // Multer setup for file uploads
@@ -51,7 +52,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const campaigns = await query('SELECT * FROM campaigns WHERE user_id = ?', [req.user.id]);
     res.json(campaigns);
   } catch (err) {
-    console.error('GET /api/campaigns error:', err);
+    console.error('GET /api/campaigns error:', err.message, err.stack);
     res.status(500).json({ error: 'Database error', details: err.message });
   }
 });
@@ -62,16 +63,54 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
     const { name, description, voice, script, service, customService, startTime } = req.body;
     const filePath = req.file ? req.file.filename : null;
 
+    // Prepend personalized greeting to the script
+    const greetingPrefix = "Hello {username}, I am EVA calling from {company}. ";
+    const finalScript = script ? `${greetingPrefix}${script}` : greetingPrefix;
+
     const result = await query(
       `INSERT INTO campaigns
       (user_id, name, description, voice, script, file_path, service, custom_service, start_time, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled')`,
-      [req.user.id, name, description, voice, script, filePath, service, customService, startTime]
+      [req.user.id, name, description, voice, finalScript, filePath, service, customService, startTime]
     );
 
     res.json({ id: result.insertId, message: 'Campaign created', filePath });
   } catch (err) {
-    console.error('POST /api/campaigns error:', err);
+    console.error('POST /api/campaigns error:', err.message, err.stack);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
+});
+
+// PUT update campaign
+router.put('/:id', authMiddleware, upload.single('file'), async (req, res) => {
+  try {
+    const campaignId = req.params.id;
+    const { name, description, voice, script, service, customService, startTime } = req.body;
+    const filePath = req.file ? req.file.filename : null;
+
+    // Prepend personalized greeting to the script
+    const greetingPrefix = "Hello {username}, I am EVA calling from {company}. ";
+    const finalScript = script ? `${greetingPrefix}${script}` : greetingPrefix;
+
+    // Verify campaign exists and belongs to user
+    const [existing] = await query('SELECT user_id FROM campaigns WHERE id = ? AND user_id = ?', [
+      campaignId,
+      req.user.id,
+    ]);
+    if (!existing) return res.status(404).json({ error: 'Campaign not found or unauthorized' });
+
+    // Update campaign
+    await query(
+      `UPDATE campaigns SET
+        name = ?, description = ?, voice = ?, script = ?, file_path = COALESCE(?, file_path),
+        service = ?, custom_service = ?, start_time = ?, status = 'Scheduled'
+      WHERE id = ?`,
+      [name, description, voice, finalScript, filePath, service, customService, startTime, campaignId]
+    );
+
+    res.json({ message: 'Campaign updated' });
+  } catch (err) {
+    console.error('PUT /api/campaigns/:id error:', err.message, err.stack);
     res.status(500).json({ error: 'Database error', details: err.message });
   }
 });
@@ -89,43 +128,20 @@ router.get('/:id/leads', authMiddleware, async (req, res) => {
     const leads = await readCSV(path.join(uploadDir, rows[0].file_path));
     res.json(leads);
   } catch (err) {
-    console.error('Error reading CSV leads:', err);
+    console.error('Error reading CSV leads:', err.message, err.stack);
     res.status(500).json({ error: 'Failed to read leads', details: err.message });
   }
 });
 
 // ===================== Twilio & Bulk Call Routes ===================== //
 
-// GET TwiML response for Twilio call (Twilio requires GET)
-router.get('/twiml/:campaignId', async (req, res) => {
-  try {
-    const campaignId = req.params.campaignId;
-    const rows = await query('SELECT script FROM campaigns WHERE id = ?', [campaignId]);
-    if (!rows.length) return res.status(404).send('Campaign not found');
-
-    res.type('text/xml');
-    res.send(`
-      <Response>
-        <Connect>
-          <Stream url="${process.env.WS_SERVER_URL}/twilio/stream?campaignId=${campaignId}" />
-        </Connect>
-      </Response>
-    `);
-  } catch (err) {
-    console.error('GET /twiml error:', err);
-    res.status(500).send('Server error');
-  }
-});
-
-// POST bulk call for all leads
-// POST bulk call for all leads
 // POST bulk call for all leads
 router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
   const campaignId = req.params.id;
 
   try {
     const campaigns = await query(
-      "SELECT file_path, name FROM campaigns WHERE id = ? AND user_id = ?",
+      "SELECT file_path, script FROM campaigns WHERE id = ? AND user_id = ?",
       [campaignId, req.user.id]
     );
 
@@ -134,20 +150,31 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
     }
 
     const campaignFile = campaigns[0].file_path;
-    const leads = await readCSV(path.join(uploadDir, campaignFile));
+    console.log("User data:", req.user);
+    const companyName = req.user.company || "Our Company";
 
-    if (!leads.length) {
-      return res.status(404).json({ error: "CSV file is empty" });
+    const leads = await readCSV(path.join(uploadDir, campaignFile));
+    if (!leads.length) return res.status(404).json({ error: "CSV file is empty" });
+
+    // Verify CSV has 'name' and 'phone' columns
+    if (!leads[0].hasOwnProperty("name") || !leads[0].hasOwnProperty("phone")) {
+      return res.status(400).json({ error: "CSV file must contain 'name' and 'phone' columns" });
     }
 
     for (const lead of leads) {
       const customer = lead.name || "Customer";
       const phone = lead.phone;
+      if (!phone) {
+        console.warn(`Skipping lead with missing phone number for ${customer}`);
+        continue;
+      }
 
-      // Add first=true to trigger initial greeting
-      const twimlUrl = `${process.env.PUBLIC_URL}/twilio/voice?campaignId=${campaignId}&customer=${encodeURIComponent(
+      // Twilio voice URL with personalized greeting
+      const twimlUrl = `${process.env.PUBLIC_URL}/twilio/voice?customer=${encodeURIComponent(
         customer
-      )}&first=true`;
+      )}&company=${encodeURIComponent(companyName)}&campaignId=${campaignId}`;
+
+      console.log("Initiating call with TwiML URL:", twimlUrl);
 
       // Initiate Twilio call
       const call = await client.calls.create({
@@ -166,17 +193,12 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
       );
     }
 
-    res.json({ success: true, message: "Calls initiated with AI assistant" });
+    res.json({ success: true, message: "Calls initiated with personalized greetings" });
   } catch (error) {
-    console.error("Error starting campaign calls:", error);
-    res.status(500).json({ success: false, error: "Failed to start calls" });
+    console.error("Error starting campaign calls:", error.message, error.stack);
+    res.status(500).json({ success: false, error: "Failed to start calls", details: error.message });
   }
 });
-
-
-
-
-
 
 // GET all calls for a campaign
 router.get('/:id/calls', authMiddleware, async (req, res) => {
@@ -186,8 +208,34 @@ router.get('/:id/calls', authMiddleware, async (req, res) => {
     ]);
     res.json(calls);
   } catch (err) {
-    console.error('GET /:id/calls error:', err);
+    console.error('GET /:id/calls error:', err.message, err.stack);
     res.status(500).json({ error: 'Failed to fetch call logs', details: err.message });
+  }
+});
+
+// GET TwiML response for Twilio stream
+router.get('/twiml/:campaignId', async (req, res) => {
+  try {
+    const campaignId = req.params.campaignId;
+    const customer = req.query.customer || 'Customer'; // Use query param if provided
+    const rows = await query('SELECT script, user_id, file_path FROM campaigns WHERE id = ?', [campaignId]);
+    if (!rows.length) return res.status(404).send('Campaign not found');
+
+    // Fetch company name
+    const [userRow] = await query('SELECT company FROM users WHERE id = ? LIMIT 1', [rows[0].user_id]);
+    const companyName = userRow?.company || 'Our Company';
+
+    res.type('text/xml');
+    res.send(`
+      <Response>
+        <Connect>
+          <Stream url="${process.env.WS_SERVER_URL}/twilio/stream?campaignId=${campaignId}&customer=${encodeURIComponent(customer)}&company=${encodeURIComponent(companyName)}" />
+        </Connect>
+      </Response>
+    `);
+  } catch (err) {
+    console.error('GET /twiml error:', err.message, err.stack);
+    res.status(500).send('Server error');
   }
 });
 
