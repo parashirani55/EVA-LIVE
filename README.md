@@ -1,69 +1,92 @@
-# 🧠 AI Voice Caller – Admin Interface
+EVA AI Voice Calling Portal
+===========================
 
-A clean and modern React-based admin dashboard designed to manage AI-powered voice call campaigns.  
-From call logs and real-time monitoring to campaign creation and transcript review, this UI brings everything together in one intuitive interface.
+EVA is an AI-driven voice calling platform built with React.js (frontend) and Node.js (backend). 
+It allows real-time AI-powered two-way communication and full customization with Twilio integration.
 
----
+Features
+--------
+- Real-time AI voice calling
+- User authentication (login/signup)
+- Custom Twilio configuration
+- NGROK support for local development
+- React frontend & Node.js backend architecture
 
-## 🚀 Features at a Glance
+Project Structure
+-----------------
+EVA-AI-VOICE-CALLING-PORTAL/
+  frontend/         - React.js frontend
+  auth-backend/     - Node.js backend (with auth and API routes)
+  README.txt        - This documentation
 
-- 📞 **Call Logs**  
-  View detailed call history with status badges and playback-style transcript viewer.
+Prerequisites
+-------------
+- Node.js (v18+ recommended)
+- npm or yarn
+- Twilio account (for voice calls)
+- NGROK (for exposing backend)
+- OpenAI API key (for AI features)
 
-- 📂 **Campaign Manager**  
-  Create campaigns with voice type, script, schedule, and lead file uploads (CSV).
+Setup & Installation
+--------------------
+1. Clone the repository:
+   git clone https://github.com/parashirani55/EVA-AI-VOICE-CALLING-PORTAL.git
+   cd EVA-AI-VOICE-CALLING-PORTAL
 
-- 🗂️ **Campaign History**  
-  Automatically track and view all created campaigns in a structured table.
+2. Setup Backend:
+   cd auth-backend
+   npm install
 
-- 🎧 **Live Monitoring** *(mock-ready)*  
-  Real-time visibility into ongoing AI calls for QA and oversight.
+   Setup NGROK for WebSocket and reverse proxy:
+     npm install -g ngrok
+     ngrok authtoken YOUR_NGROK_AUTH_TOKEN
+   (Get your auth token by signing in on the ngrok website)
 
-- ⚙️ **Settings Panel**  
-  Configure default voice model, time zones, scripts, and more.
+   Start NGROK to expose your backend:
+     ngrok http 5000
 
-- ✨ **Fully Responsive**  
-  Clean, mobile-friendly UI powered by Tailwind CSS.
+   Create a .env file with the following:
+     PORT=5000
+     NGROK_AUTH_TOKEN=your_ngrok_auth_token
+     TWILIO_ACCOUNT_SID=your_twilio_account_sid
+     TWILIO_AUTH_TOKEN=your_twilio_auth_token
+     TWILIO_PHONE_NUMBER=your_twilio_phone_number
+     OPENAI_API_KEY=your_openai_api_key
 
-- 🧭 **Sidebar Navigation**  
-  Organized route-based structure for seamless user flow.
+   Start backend:
+     npm run dev
 
----
+3. Setup Frontend:
+   cd ../frontend
+   npm install
+   npm start
 
-## 🖼️ Preview
+   Frontend will run on http://localhost:3000
 
-> 🔧 Live preview or screenshots coming soon...
+Usage
+-----
+1. Signup or login via the frontend
+2. Configure Twilio settings if needed
+3. Start AI-powered voice calls through the dashboard
+4. Backend handles Twilio call routing
 
----
+Notes
+-----
+- NGROK token must be valid to expose backend
+- Update Twilio credentials to avoid call errors
+- Supports two-way AI voice conversation
 
-## 🛠️ Tech Stack
+Tech Stack
+----------
+- Frontend: React.js, Axios
+- Backend: Node.js, Express, Twilio SDK, NGROK
+- Database: Optional (MongoDB/MySQL)
+- AI Integration: OpenAI (optional)
 
-This project is built with:
+Contributing
+------------
+Fork the repo, make improvements, and submit PRs. Issues and suggestions welcome.
 
-- ⚛️ **React.js** (CRA - Create React App)
-- 🎨 **Tailwind CSS** – For utility-first, responsive design
-- 🎯 **Lucide Icons** – Elegant and modern icons
-- 🧪 **React Hooks** – For state and interaction (`useState`)
-- 🔌 **API-Ready** – Easily extendable to any backend (Node.js, Laravel, etc.)
-
----
-
-## 🧑‍💻 Getting Started
-
-Follow these steps to run the project locally:
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/parashirani55/Ai-Voice-caller-UI.git
-cd Ai-Voice-caller-UI
-```
-2. Install Dependencies
-```
-npm install
-```
-3. Start the Development Server
-```
-npm start
-```
-The app will be available at: http://localhost:3000
+Disclaimer
+----------
+For development and testing purposes only. Ensure Twilio account is in good standing to avoid charges.
