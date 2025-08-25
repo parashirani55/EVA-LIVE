@@ -36,13 +36,15 @@ OpenAI API key (for AI voice features)
 
 ⚡ Getting Started
 1️⃣ Clone Repository
+```
 git clone https://github.com/parashirani55/EVA-AI-VOICE-CALLING-PORTAL.git
 cd EVA-AI-VOICE-CALLING-PORTAL
-
+```
 2️⃣ Backend Setup
+```
 cd auth-backend
 npm install
-
+```
 Create .env for Backend
 PORT=5000
 NGROK_AUTH_TOKEN=your_ngrok_auth_token
@@ -55,21 +57,21 @@ NGROK_URL=http://xxxxxx.ngrok.io   # Update after starting ngrok
 3️⃣ NGROK Setup
 
 Install NGROK globally:
-
+```
 npm install -g ngrok
-
+```
 
 Get your Auth Token from NGROK Dashboard
 
 Set the Auth Token:
-
+```
 ngrok authtoken YOUR_NGROK_AUTH_TOKEN
-
+```
 
 Start NGROK:
-
+```
 ngrok http 5000
-
+```
 
 Update .env in backend and frontend with the NGROK URL:
 
@@ -80,19 +82,21 @@ REACT_APP_BACKEND_URL=https://abc123.ngrok.io  # frontend
 ⚠️ Tip: NGROK URL changes every time you restart. Update .env files each time.
 
 4️⃣ Start Backend
+```
 npm run dev
-
+```
 5️⃣ Frontend Setup
-cd ../frontend
+```
 npm install
-
+```
 Create .env for Frontend
 REACT_APP_BACKEND_URL=https://xxxxxx.ngrok.io   # NGROK backend URL
 REACT_APP_OPENAI_API_KEY=your_openai_api_key
 
 Start Frontend
+```
 npm start
-
+```
 
 Frontend runs at: http://localhost:3000
 
