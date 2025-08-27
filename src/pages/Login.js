@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, Phone, ArrowRight, Shield, Zap, CheckCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import Swal from 'sweetalert2';
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -38,6 +37,34 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // 🔹 Front-end validations
+    if (!email) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Email Required',
+        text: 'Please enter your email address',
+      });
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid Email',
+        text: 'Please enter a valid email address',
+      });
+      return;
+    }
+
+    if (!password) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Password Required',
+        text: 'Please enter your password',
+      });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -60,13 +87,28 @@ function Login() {
         };
         localStorage.setItem('userData', JSON.stringify(userData));
 
-        toast.success(`Welcome to Eva, ${userData.name || 'User'}!`, { position: 'top-right' });
+        Swal.fire({
+          icon: 'success',
+          title: `Welcome, ${userData.name}!`,
+          text: 'You have successfully logged in to Eva',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
         navigate('/dashboard');
       } else {
-        toast.error(data.message || 'Login to Eva failed', { position: 'top-right' });
+        Swal.fire({
+          icon: 'error',
+          title: 'Login Failed',
+          text: data.message || 'Incorrect email or password',
+        });
       }
     } catch (err) {
-      toast.error('Something went wrong. Please try again with Eva.', { position: 'top-right' });
+      Swal.fire({
+        icon: 'error',
+        title: 'Server Error',
+        text: 'Something went wrong. Please try again later',
+      });
       console.error(err);
     } finally {
       setLoading(false);
@@ -75,6 +117,7 @@ function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex">
+      {/* Left Section (Form) */}
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
@@ -84,6 +127,8 @@ function Login() {
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Welcome to Eva</h1>
             <p className="text-slate-600">Sign in to access Eva's AI voice campaign dashboard</p>
           </div>
+
+          {/* Social Login */}
           <div className="space-y-3 mb-8">
             <button className="w-full flex items-center justify-center px-4 py-3 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 hover:shadow-md transition-all duration-300">
               <div className="w-5 h-5 mr-3 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">G</div>
@@ -94,6 +139,8 @@ function Login() {
               Continue with GitHub
             </button>
           </div>
+
+          {/* Divider */}
           <div className="relative mb-8">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200"></div>
@@ -102,7 +149,10 @@ function Login() {
               <span className="px-4 bg-white text-slate-500">Or continue with email</span>
             </div>
           </div>
+
+          {/* Login Form */}
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Email Address
@@ -121,6 +171,8 @@ function Login() {
                 />
               </div>
             </div>
+
+            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Password
@@ -147,6 +199,8 @@ function Login() {
                 </button>
               </div>
             </div>
+
+            {/* Remember Me + Forgot Password */}
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <input
@@ -162,11 +216,13 @@ function Login() {
               <button
                 type="button"
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                onClick={() => alert('Forgot password flow not implemented')}
+                onClick={() => Swal.fire('Forgot Password?', 'Reset flow not implemented yet', 'info')}
               >
                 Forgot password?
               </button>
             </div>
+
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
@@ -176,6 +232,8 @@ function Login() {
               <ArrowRight className="w-5 h-5 ml-2" />
             </button>
           </form>
+
+          {/* Register Link */}
           <div className="text-center mt-8">
             <p className="text-slate-600">
               Don't have an account?{' '}
@@ -187,12 +245,16 @@ function Login() {
               </Link>
             </p>
           </div>
+
+          {/* Security Note */}
           <div className="mt-8 flex items-center justify-center text-sm text-slate-500">
             <Shield className="w-4 h-4 mr-2 text-emerald-600" />
             Secured with Eva's 256-bit SSL encryption
           </div>
         </div>
       </div>
+
+      {/* Right Section (Features) */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-slate-900 to-slate-800 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-72 h-72 bg-blue-500 rounded-full blur-3xl"></div>
@@ -213,6 +275,8 @@ function Login() {
               Join thousands of companies using Eva's AI voice campaign platform to achieve unprecedented growth and customer engagement.
             </p>
           </div>
+
+          {/* Features */}
           <div className="space-y-6">
             {features.map((feature, index) => (
               <div key={index} className="flex items-start space-x-4 group">
@@ -226,6 +290,8 @@ function Login() {
               </div>
             ))}
           </div>
+
+          {/* Stats */}
           <div className="mt-12 grid grid-cols-3 gap-8">
             <div className="text-center">
               <div className="text-3xl font-bold text-white mb-1">10M+</div>
@@ -240,6 +306,8 @@ function Login() {
               <div className="text-slate-400 text-sm">Happy Eva Clients</div>
             </div>
           </div>
+
+          {/* Testimonial */}
           <div className="mt-12 p-6 bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10">
             <p className="text-slate-300 italic mb-4">
               "Eva revolutionized our outreach campaigns. The AI voices are incredibly natural and our conversion rates increased by 300%."

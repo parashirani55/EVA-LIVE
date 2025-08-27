@@ -14,8 +14,9 @@ router.get("/dashboard-stats", async (req, res) => {
       "SELECT SEC_TO_TIME(SUM(duration)) AS value FROM calls"
     );
     const [answered] = await pool.query(
-      "SELECT COUNT(*) AS value FROM calls WHERE status = 'completed'"
+      "SELECT COUNT(*) AS value FROM calls WHERE status IN ('completed', 'Answered')"
     );
+    
     const [missed] = await pool.query(
       "SELECT COUNT(*) AS value FROM calls WHERE status = 'missed'"
     );

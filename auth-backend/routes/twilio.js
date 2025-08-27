@@ -218,14 +218,18 @@ router.post("/response", async (req, res) => {
 
 // ---------- 3️⃣ Call Status Callback ----------
 router.post("/status", (req, res) => {
-  const { CallSid, CallStatus } = req.body;
-  console.log("📞 Call Status Update:", { CallSid, CallStatus });
+  const { CallSid, CallStatus, CallDuration } = req.body;
+  console.log("📞 Call Status Update:", { CallSid, CallStatus, CallDuration });
 
   db.query(
-    "UPDATE calls SET status = ? WHERE twilio_sid = ?",
-    [CallStatus, CallSid],
+    "UPDATE calls SET status = ?, duration = ? WHERE twilio_sid = ?",
+    [CallStatus, CallDuration || null, CallSid],
     (err) => {
-      if (err) console.error("Status Update Error:", err);
+      if (err) {
+        console.error("Status and Duration Update Error:", err);
+      } else {
+        console.log(`Updated call ${CallSid} with status ${CallStatus} and duration ${CallDuration} seconds`);
+      }
     }
   );
 

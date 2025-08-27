@@ -136,6 +136,7 @@ router.get('/:id/leads', authMiddleware, async (req, res) => {
 // ===================== Twilio & Bulk Call Routes ===================== //
 
 // POST bulk call for all leads
+// POST bulk call for all leads
 router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
   const campaignId = req.params.id;
 
@@ -150,7 +151,7 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
     }
 
     const campaignFile = campaigns[0].file_path;
-    console.log("User data:", req.user);
+    const script = campaigns[0].script || "Hello {username}, I am EVA calling from {company}.";
     const companyName = req.user.company || "Our Company";
 
     const leads = await readCSV(path.join(uploadDir, campaignFile));
@@ -169,6 +170,11 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
         continue;
       }
 
+      // Personalize the script
+      const personalizedScript = script
+        .replace("{username}", customer)
+        .replace("{company}", companyName);
+
       // Twilio voice URL with personalized greeting
       const twimlUrl = `${process.env.PUBLIC_URL}/twilio/voice?customer=${encodeURIComponent(
         customer
@@ -186,10 +192,10 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
         statusCallbackMethod: "POST",
       });
 
-      // Save call in database
+      // Save call in database with personalized script in ai_message
       await query(
-        "INSERT INTO calls (customer, phone, started_at, status, campaign, twilio_sid) VALUES (?, ?, NOW(), ?, ?, ?)",
-        [customer, phone, "initiated", campaignId, call.sid]
+        "INSERT INTO calls (customer, phone, started_at, status, campaign, twilio_sid, ai_message) VALUES (?, ?, NOW(), ?, ?, ?, ?)",
+        [customer, phone, "initiated", campaignId, call.sid, personalizedScript]
       );
     }
 

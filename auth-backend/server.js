@@ -283,7 +283,7 @@ app.get('/api/dashboard-stats', async (req, res) => {
     const [rows] = await db.query(`
       SELECT
         COUNT(*) AS total_calls,
-        SUM(status IN ('Answered','Speaking','Listening')) AS answered_calls,
+        SUM(status IN ('Answered','Speaking','Listening','completed')) AS answered_calls,
         SUM(status IN ('No Answer','Failed','Error','Busy')) AS failed_calls,
         ROUND(AVG(NULLIF(duration, 0))) AS avg_seconds
       FROM calls
