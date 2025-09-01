@@ -1,90 +1,177 @@
 const express = require("express");
 const twilio = require("twilio");
 const OpenAI = require("openai");
+const fetch = require("node-fetch");
 const db = require("../config/db");
+const fs = require("fs");
+const path = require("path");
+const ffmpeg = require("fluent-ffmpeg");
+const ffmpegPath = require("@ffmpeg-installer/ffmpeg").path;
+const ffprobePath = require("@ffprobe-installer/ffprobe").path;
+
+ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfprobePath(ffprobePath);
+
+console.log("✅ Using ffmpeg binary:", ffmpegPath);
+console.log("✅ Using ffprobe binary:", ffprobePath);
 
 const router = express.Router();
 const VoiceResponse = twilio.twiml.VoiceResponse;
 
-// Public URL for Twilio callbacks
-const BASE_URL = process.env.PUBLIC_URL || "https://your-ngrok-url.ngrok-free.app";
+const BASE_URL =
+  process.env.PUBLIC_URL && process.env.PUBLIC_URL.match(/^https?:\/\//)
+    ? process.env.PUBLIC_URL.replace(/\/$/, "")
+    : "https://3ea5f9fdbf93.ngrok-free.app";
 
-// OpenAI client
+console.log("Using BASE_URL:", BASE_URL);
+
 const openai = new OpenAI({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY,
 });
 
-// ---------- 1️⃣ Initial Voice Route ----------
+// === Helpers ===
+function convertToTwilioWav(inputPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .audioCodec("pcm_s16le")
+      .audioFrequency(16000)
+      .audioChannels(1)
+      .toFormat("wav")
+      .on("end", () => {
+        fs.unlink(inputPath, () => {});
+        resolve(outputPath);
+      })
+      .on("error", reject)
+      .save(outputPath);
+  });
+}
+
+async function getElevenLabsAudio(text) {
+  const resp = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVEN_LABS_VOICE_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "audio/wav",
+        "xi-api-key": process.env.ELEVEN_LABS_API,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_monolingual_v1",
+        output_format: "pcm_16000",
+        voice_settings: { stability: 0.4, similarity_boost: 0.8 },
+      }),
+    }
+  );
+
+  if (!resp.ok) throw new Error(await resp.text());
+
+  const buffer = Buffer.from(await resp.arrayBuffer());
+  const wavFile = `eleven-${Date.now()}.wav`;
+  const wavPath = path.join(__dirname, "../public", wavFile);
+  fs.writeFileSync(wavPath, buffer);
+
+  const convertedPath = path.join(__dirname, "../public", `converted-${wavFile}`);
+  await convertToTwilioWav(wavPath, convertedPath);
+
+  return `${BASE_URL}/converted-${wavFile}`;
+}
+
+// Helper: Append transcript safely
+async function appendTranscript(callSid, entry) {
+  return new Promise((resolve, reject) => {
+    db.query(
+      "SELECT transcript FROM calls WHERE twilio_sid = ? LIMIT 1",
+      [callSid],
+      (err, results) => {
+        if (err) return reject(err);
+        if (!results.length) {
+          console.log("⚠️ No call row for", callSid);
+          return resolve(false);
+        }
+
+        let transcript = [];
+        try {
+          transcript = results[0].transcript ? JSON.parse(results[0].transcript) : [];
+        } catch (e) {
+          console.error("Transcript parse error:", e);
+        }
+
+        transcript.push(entry);
+
+        db.query(
+          "UPDATE calls SET transcript = ? WHERE twilio_sid = ?",
+          [JSON.stringify(transcript), callSid],
+          (err2) => {
+            if (err2) return reject(err2);
+            console.log("✅ Transcript updated for", callSid);
+            resolve(true);
+          }
+        );
+      }
+    );
+  });
+}
+
+// --- 1️⃣ Voice Route ---
 router.post("/voice", async (req, res) => {
-  const { campaignId, customer, first, company } = req.query;
-  console.log("Voice route query:", { campaignId, customer, first, company });
+  const { campaignId, customer, phone, company } = req.query;
+  const { CallSid } = req.body;
   const twiml = new VoiceResponse();
 
   try {
-    // Validate query parameters
-    if (!campaignId || !customer) {
-      throw new Error("Missing campaignId or customer in query parameters");
-    }
+    if (!campaignId || !customer) throw new Error("Missing campaignId or customer");
 
-    // Fetch campaign script and user company from DB
+    // Fetch campaign
     const [campaign] = await new Promise((resolve, reject) => {
       db.query(
         "SELECT script, user_id FROM campaigns WHERE id = ? LIMIT 1",
         [campaignId],
-        (err, results) => {
-          console.log("Campaign query:", { err, results });
-          err ? reject(err) : resolve(results);
-        }
+        (err, results) => (err ? reject(err) : resolve(results))
       );
     });
+    if (!campaign) throw new Error(`Campaign not found: ${campaignId}`);
 
-    if (!campaign) {
-      throw new Error(`Campaign not found for ID: ${campaignId}`);
-    }
-
-    // Fetch company name (use query param if provided, else DB)
+    // Get company name if not provided
     let companyName = company;
     if (!companyName) {
-      const [userRow] = await new Promise((resolve, reject) => {
+      const [user] = await new Promise((resolve, reject) => {
         db.query(
           "SELECT company FROM users WHERE id = ? LIMIT 1",
           [campaign.user_id],
-          (err, results) => {
-            console.log("User query:", { err, results });
-            err ? reject(err) : resolve(results);
-          }
+          (err, results) => (err ? reject(err) : resolve(results))
         );
       });
-      companyName = userRow?.company || "Our Company";
+      companyName = user?.company || "Our Company";
     }
 
-    // Personalize script
-    const scriptTemplate = campaign.script || "Hello {username}, I am EVA calling from {company}.";
-    const personalizedScript = scriptTemplate
-      .replace(/{username}/g, customer || "Customer")
+    const personalizedScript = (campaign.script || "Hello {username}, I am EVA from {company}.")
+      .replace(/{username}/g, customer)
       .replace(/{company}/g, companyName);
 
-    twiml.pause({ length: 1 });
-    twiml.say({ voice: "alice" }, personalizedScript);
-    twiml.say({ voice: "alice" }, "What topic would you like to discuss today?");
-    twiml.pause({ length: 1 });
+    const welcomeText = `${personalizedScript} What topic would you like to discuss today?`;
+    const audioUrl = await getElevenLabsAudio(welcomeText);
 
-    // Gather user speech
-    const gather = twiml.gather({
+    // ✅ Only update transcript if call row exists
+    await appendTranscript(CallSid, { from: "AI", text: welcomeText });
+
+    // Twilio response
+    twiml.pause({ length: 1 });
+    twiml.play(audioUrl);
+    twiml.pause({ length: 1 });
+    twiml.gather({
       input: "speech",
-      action: `${BASE_URL}/twilio/response?campaignId=${campaignId}&customer=${encodeURIComponent(customer)}&company=${encodeURIComponent(companyName)}`,
+      action: `${BASE_URL}/twilio/response?campaignId=${campaignId}&customer=${encodeURIComponent(
+        customer
+      )}&company=${encodeURIComponent(companyName)}`,
       method: "POST",
       timeout: 5,
       speechTimeout: "auto",
     });
-
-    // Redirect safety if no speech
-    twiml.redirect(
-      `${BASE_URL}/twilio/voice?campaignId=${campaignId}&customer=${encodeURIComponent(customer)}&company=${encodeURIComponent(companyName)}&first=false`
-    );
   } catch (err) {
-    console.error("Voice Route Error:", err.message, err.stack);
-    twiml.say({ voice: "alice" }, "Sorry, there was an error starting the call. Please try again.");
+    console.error("Voice Route Error:", err.message);
+    twiml.say({ voice: "Polly.Joanna" }, "Sorry, there was an error starting the call.");
     twiml.hangup();
   }
 
@@ -92,144 +179,125 @@ router.post("/voice", async (req, res) => {
   res.send(twiml.toString());
 });
 
-// ---------- 2️⃣ Response Route ----------
+// --- 2️⃣ Response Route ---
 router.post("/response", async (req, res) => {
   const { SpeechResult, CallSid } = req.body;
   const { campaignId, customer, company } = req.query;
-  console.log("Response route:", { SpeechResult, CallSid, campaignId, customer, company });
   const twiml = new VoiceResponse();
 
-  let aiResponse = "Sorry, I didn’t get that. Can you repeat the topic?";
-
   try {
-    // Validate inputs
-    if (!campaignId || !customer) {
-      throw new Error("Missing campaignId or customer in query parameters");
-    }
+    if (!campaignId || !customer) throw new Error("Missing campaignId or customer");
 
-    // Fetch campaign and user company
+    // Fetch campaign
     const [campaign] = await new Promise((resolve, reject) => {
       db.query(
         "SELECT script, user_id FROM campaigns WHERE id = ? LIMIT 1",
         [campaignId],
-        (err, results) => {
-          console.log("Campaign query in response:", { err, results });
-          err ? reject(err) : resolve(results);
-        }
+        (err, results) => (err ? reject(err) : resolve(results))
       );
     });
-    if (!campaign) throw new Error(`Campaign not found for ID: ${campaignId}`);
 
+    if (!campaign) throw new Error(`Campaign not found: ${campaignId}`);
+
+    // Get company name
     let companyName = company;
     if (!companyName) {
-      const [userRow] = await new Promise((resolve, reject) => {
+      const [user] = await new Promise((resolve, reject) => {
         db.query(
           "SELECT company FROM users WHERE id = ? LIMIT 1",
           [campaign.user_id],
-          (err, results) => {
-            console.log("User query in response:", { err, results });
-            err ? reject(err) : resolve(results);
-          }
+          (err, results) => (err ? reject(err) : resolve(results))
         );
       });
-      companyName = userRow?.company || "Our Company";
+      companyName = user?.company || "Our Company";
     }
 
-    const personalizedScript = (campaign.script || "Hello {username}, I am EVA calling from {company}.")
-      .replace(/{username}/g, customer || "Customer")
+    const personalizedScript = (campaign.script || "Hello {username}, I am EVA from {company}.")
+      .replace(/{username}/g, customer)
       .replace(/{company}/g, companyName);
 
+    const userText = SpeechResult || "";
     const exitKeywords = ["bye", "goodbye", "thank you", "thanks"];
-    const userText = (SpeechResult || "").toLowerCase();
-    const shouldHangup = exitKeywords.some((word) => userText.includes(word));
+    const shouldHangup = exitKeywords.some((w) => userText.toLowerCase().includes(w));
+
+    let aiResponse = "Sorry, I didn’t get that. Can you repeat?";
 
     if (shouldHangup) {
       aiResponse = "Okay, thank you for your time. Have a great day!";
-      twiml.say({ voice: "alice" }, aiResponse);
+      const audioUrl = await getElevenLabsAudio(aiResponse);
+
+      if (SpeechResult) {
+        await appendTranscript(CallSid, { from: "User", text: SpeechResult, type: "topic" });
+      }
+      await appendTranscript(CallSid, { from: "AI", text: aiResponse });
+
+      db.query(
+        "UPDATE calls SET status = 'completed', ended_at = NOW() WHERE twilio_sid = ?",
+        [CallSid]
+      );
+
+      twiml.play(audioUrl);
       twiml.hangup();
     } else if (SpeechResult) {
-      // OpenAI generates reply
       try {
         const completion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
-              content: `You are Eva, an AI assistant for ${companyName}. The call started with: "${personalizedScript}". The user provided a topic: "${SpeechResult}". Respond conversationally, addressing their topic and keeping the response relevant to the campaign script. Keep answers short and engaging.`,
+              content: `You are Eva, AI assistant for ${companyName}. Call started with: "${personalizedScript}". User said: "${SpeechResult}". Reply briefly.`,
             },
             { role: "user", content: SpeechResult },
           ],
         });
         aiResponse = completion.choices[0].message.content?.trim() || aiResponse;
-      } catch (openaiErr) {
-        console.error("OpenAI Error:", openaiErr.message, openaiErr.stack);
-        throw new Error("Failed to get response from OpenAI");
+      } catch (err) {
+        console.error("OpenAI Error:", err.message);
       }
 
-      // Repeat gather
       const gather = twiml.gather({
         input: "speech",
-        action: `${BASE_URL}/twilio/response?campaignId=${campaignId}&customer=${encodeURIComponent(customer)}&company=${encodeURIComponent(companyName)}`,
+        action: `${BASE_URL}/twilio/response?campaignId=${campaignId}&customer=${encodeURIComponent(
+          customer
+        )}&company=${encodeURIComponent(companyName)}`,
         method: "POST",
         timeout: 5,
         speechTimeout: "auto",
       });
-      gather.say({ voice: "alice" }, aiResponse);
 
-      // Safety redirect
+      const audioUrl = await getElevenLabsAudio(aiResponse);
+
+      await appendTranscript(CallSid, { from: "User", text: SpeechResult, type: "topic" });
+      await appendTranscript(CallSid, { from: "AI", text: aiResponse });
+
+      gather.play(audioUrl);
       twiml.redirect(
-        `${BASE_URL}/twilio/voice?campaignId=${campaignId}&customer=${encodeURIComponent(customer)}&company=${encodeURIComponent(companyName)}&first=false`
+        `${BASE_URL}/twilio/voice?campaignId=${campaignId}&customer=${encodeURIComponent(
+          customer
+        )}&company=${encodeURIComponent(companyName)}&first=false`
       );
     }
   } catch (err) {
-    console.error("Response Route Error:", err.message, err.stack);
-    twiml.say({ voice: "alice" }, "Sorry, there was an error processing your response. Please try again.");
+    console.error("Response Route Error:", err.message);
+    twiml.say({ voice: "Polly.Joanna" }, "Sorry, there was an error.");
     twiml.hangup();
   }
-
-  // Save transcript
-  db.query(
-    `SELECT transcript FROM calls WHERE twilio_sid = ? LIMIT 1`,
-    [CallSid],
-    (err, results) => {
-      if (!err && results.length > 0) {
-        let transcript = [];
-        try {
-          transcript = JSON.parse(results[0].transcript || "[]");
-        } catch (e) {
-          console.error("Transcript Parse Error:", e);
-        }
-        if (SpeechResult) transcript.push({ from: "User", text: SpeechResult, type: "topic" });
-        transcript.push({ from: "AI", text: aiResponse });
-        db.query(
-          `UPDATE calls SET transcript = ? WHERE twilio_sid = ?`,
-          [JSON.stringify(transcript), CallSid],
-          (err2) => {
-            if (err2) console.error("Transcript Save Error:", err2);
-          }
-        );
-      }
-    }
-  );
 
   res.type("text/xml");
   res.send(twiml.toString());
 });
 
-// ---------- 3️⃣ Call Status Callback ----------
+// --- 3️⃣ Status Route ---
 router.post("/status", (req, res) => {
   const { CallSid, CallStatus, CallDuration } = req.body;
-  console.log("📞 Call Status Update:", { CallSid, CallStatus, CallDuration });
+  console.log("📞 Twilio Status:", { CallSid, CallStatus, CallDuration });
 
   db.query(
     "UPDATE calls SET status = ?, duration = ? WHERE twilio_sid = ?",
     [CallStatus, CallDuration || null, CallSid],
     (err) => {
-      if (err) {
-        console.error("Status and Duration Update Error:", err);
-      } else {
-        console.log(`Updated call ${CallSid} with status ${CallStatus} and duration ${CallDuration} seconds`);
-      }
+      if (err) console.error("Status Update Error:", err);
+      else console.log(`✅ Call status updated for ${CallSid}`);
     }
   );
 

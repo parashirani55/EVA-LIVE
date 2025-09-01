@@ -13,19 +13,17 @@ const activeCallsRouter = require('./routes/activeCalls');
 const callHistoryRouter = require('./routes/callHistory');
 const campaignsRouter = require('./routes/campaigns');
 const twilioStatusRoutes = require('./routes/twilioStatus');
-
-const twilioRoutes = require('./routes/twilio');         // enable if you still use TwiML gather flow
-// const conversationRoutes = require('./routes/conversation');
-
-const attachTwilioStream = require('./routes/twilioStream');      // <- WebSocket bridge for real-time calls
+const twilioRoutes = require('./routes/twilio');
+const attachTwilioStream = require('./routes/twilioStream');
 
 const app = express();
-const server = http.createServer(app);                     // <-- IMPORTANT: use HTTP server so WS can attach
+const server = http.createServer(app);
 
 // ---------- Middleware ----------
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 // ---------- JWT Verification Middleware ----------
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -50,7 +48,6 @@ const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   port: process.env.DB_PORT || '3310',
-  // handle both DB_PASS and DB_PASSWORD to avoid env mismatch
   password: process.env.DB_PASS || process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'aivoicecaller'
 });
@@ -321,19 +318,31 @@ app.get('/api/dashboard-stats', async (req, res) => {
 });
 
 // ---------- Static files & routers ----------
+app.use(express.static(path.join(__dirname, "public"), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".wav")) {
+      res.setHeader("Content-Type", "audio/x-wav"); // Twilio-compatible Content-Type
+      res.setHeader("Content-Disposition", "inline");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    }
+    if (filePath.endsWith(".mp3")) {
+      res.setHeader("Content-Type", "audio/mpeg");
+      res.setHeader("Content-Disposition", "inline");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    }
+  }
+}));
+
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/active-calls', activeCallsRouter);
 app.use('/api/call-history', callHistoryRouter);
 app.use('/twilio', twilioStatusRoutes);
-
-// Optional legacy routes (enable if needed)
 app.use('/twilio', twilioRoutes);
-// app.use('/conversation', conversationRoutes);
 
 // ---------- Attach WebSocket for Twilio Media Streams ----------
-attachTwilioStream(server);   // exposes wss: /twilio/stream
+attachTwilioStream(server);
 
 // ---------- Start Server ----------
 const PORT = process.env.PORT || 5000;
