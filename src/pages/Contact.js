@@ -907,13 +907,13 @@ function ContactPage() {
                                 Transform your outreach with Eva's cutting-edge AI voice technology and achieve unprecedented growth.
                             </p>
                             <div className="flex space-x-4">
-                                <a href="#" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors duration-300">
+                                <a href="/login" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors duration-300">
                                     <span className="text-sm">📘</span>
                                 </a>
-                                <a href="#" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-400 transition-colors duration-300">
+                                <a href="/login" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-400 transition-colors duration-300">
                                     <span className="text-sm">🐦</span>
                                 </a>
-                                <a href="#" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors duration-300">
+                                <a href="/login" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors duration-300">
                                     <span className="text-sm">💼</span>
                                 </a>
                             </div>

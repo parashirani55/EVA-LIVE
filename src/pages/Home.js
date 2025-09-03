@@ -848,13 +848,13 @@ function Home() {
                             </p>
                             <div className="flex space-x-4">
                                 {/* Social Media Icons */}
-                                <a href="#" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors duration-300">
+                                <a href="/login" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors duration-300">
                                     <span className="text-sm">📘</span>
                                 </a>
-                                <a href="#" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-400 transition-colors duration-300">
+                                <a href="/login" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-400 transition-colors duration-300">
                                     <span className="text-sm">🐦</span>
                                 </a>
-                                <a href="#" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors duration-300">
+                                <a href="/login" className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors duration-300">
                                     <span className="text-sm">💼</span>
                                 </a>
                             </div>
