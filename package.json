@@ -47,7 +47,22 @@
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.3.0",
     "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.1",
+    "eslint-plugin-unused-imports": "^4.2.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17"
-  }
+  },
+  "description": "🚀 EVA AI Voice Calling Portal                       ----------------------------------------------------------------------100% working ------- normal ai genration and normal ai voice",
+  "main": "postcss.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/parashirani55/EVA-LIVE.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/parashirani55/EVA-LIVE/issues"
+  },
+  "homepage": "https://github.com/parashirani55/EVA-LIVE#readme"
 }
