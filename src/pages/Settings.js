@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Mic, Globe, Clock, FileText, Save, Bot, Volume2, Timer, MapPin, CheckCircle } from 'lucide-react';
+import { Settings, Mic, Clock, FileText, Save, Bot, Timer, MapPin, CheckCircle } from 'lucide-react';
 
 function SettingsPage() {
     const [settings, setSettings] = useState({
