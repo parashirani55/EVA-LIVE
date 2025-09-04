@@ -20,7 +20,7 @@ const Dashboard = () => {
   useEffect(() => {
     const getDashboardData = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/dashboard-stats");
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/dashboard-stats`);
         if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
 
         const data = await res.json();
