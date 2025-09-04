@@ -8,7 +8,7 @@ function LiveMonitor() {
     // Fetch active calls from backend
     const fetchLiveCalls = async () => {
         try {
-            const res = await fetch('http://localhost:5000/api/active-calls'); // Adjust URL if needed
+            const res = await fetch(`${process.env.REACT_APP_API_URL}/api/active-calls`);
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
             setLiveCalls(data);
