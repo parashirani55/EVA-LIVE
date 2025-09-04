@@ -83,17 +83,18 @@
       setLoading(true);
     
       try {
-        const response = await fetch('http://localhost:5000/api/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: `${formData.firstName} ${formData.lastName}`.trim(),
-            email: formData.email,
-            company: formData.company,
-            password: formData.password,
-            role: 'user',
-          }),
-        });
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/register`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    name: `${formData.firstName} ${formData.lastName}`.trim(),
+    email: formData.email,
+    company: formData.company,
+    password: formData.password,
+    role: 'user',
+  }),
+});
+
     
         const data = await response.json();
     
