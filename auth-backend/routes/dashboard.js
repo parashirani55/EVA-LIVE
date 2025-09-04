@@ -16,7 +16,6 @@ router.get("/dashboard-stats", async (req, res) => {
     const [answered] = await pool.query(
       "SELECT COUNT(*) AS value FROM calls WHERE status IN ('completed', 'Answered')"
     );
-    
     const [missed] = await pool.query(
       "SELECT COUNT(*) AS value FROM calls WHERE status = 'missed'"
     );
@@ -55,6 +54,7 @@ router.get("/dashboard-stats", async (req, res) => {
     // 2️⃣ Fetch chart data — calls per day for the last 7 days
     const [chartRows] = await pool.query(`
       SELECT 
+        DATE(call_time) AS call_date,
         DATE_FORMAT(call_time, '%a') AS name,
         COUNT(*) AS calls
       FROM calls
