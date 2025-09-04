@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Eye, X, Phone, Activity } from 'lucide-react';
 import axios from "axios";
+
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || "http://135.237.127.43:3000";
+
 function Calls() {
     const [calls, setCalls] = useState([]); // past call history
     const [liveCalls, setLiveCalls] = useState([]); // ongoing calls
