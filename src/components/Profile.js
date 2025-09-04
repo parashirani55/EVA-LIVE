@@ -17,7 +17,10 @@ function Profile() {
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) return false;
     try {
-      const response = await axios.post('http://localhost:5000/api/refresh', { refreshToken });
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/refresh`,
+        { refreshToken }
+      );
       localStorage.setItem('accessToken', response.data.accessToken);
       return true;
     } catch (err) {
@@ -38,6 +41,7 @@ function Profile() {
       }
 
       try {
+        // Prefill from local storage
         if (storedUser && storedUser.name && storedUser.name !== 'Unknown User') {
           const initials = storedUser.name
             ? storedUser.name.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -59,17 +63,20 @@ function Profile() {
           });
         }
 
-        let response = await axios.get('http://localhost:5000/api/user', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // Fetch latest from API
+        let response = await axios.get(
+          `${process.env.REACT_APP_API_URL}/api/user`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
         console.log('Profile: Fetched user data:', response.data);
 
         if (response.status === 403) {
           const refreshed = await refreshToken();
           if (refreshed) {
-            response = await axios.get('http://localhost:5000/api/user', {
-              headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-            });
+            response = await axios.get(
+              `${process.env.REACT_APP_API_URL}/api/user`,
+              { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } }
+            );
           } else {
             throw new Error('Token refresh failed');
           }
@@ -79,6 +86,7 @@ function Profile() {
         const initials = userData.name
           ? userData.name.split(' ').map(n => n[0]).join('').toUpperCase()
           : 'U';
+
         setUser({
           id: userData.id,
           name: userData.name || 'Unknown User',
@@ -87,6 +95,7 @@ function Profile() {
           company: userData.company || 'Not provided',
           initials
         });
+
         setFormData({
           name: userData.name || '',
           email: userData.email || '',
@@ -94,6 +103,7 @@ function Profile() {
           password: '',
           confirmPassword: ''
         });
+
         localStorage.setItem('userData', JSON.stringify({
           id: userData.id,
           name: userData.name,
@@ -101,6 +111,7 @@ function Profile() {
           email: userData.email,
           company: userData.company
         }));
+
         setLoading(false);
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -151,16 +162,20 @@ function Profile() {
     }
 
     try {
-      let response = await axios.post('http://localhost:5000/api/user', formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      let response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/user`,
+        formData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
       if (response.status === 403) {
         const refreshed = await refreshToken();
         if (refreshed) {
-          response = await axios.post('http://localhost:5000/api/user', formData, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-          });
+          response = await axios.post(
+            `${process.env.REACT_APP_API_URL}/api/user`,
+            formData,
+            { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } }
+          );
         } else {
           throw new Error('Token refresh failed');
         }
@@ -170,6 +185,7 @@ function Profile() {
       const initials = updatedUser.name
         ? updatedUser.name.split(' ').map(n => n[0]).join('').toUpperCase()
         : 'U';
+
       setUser({
         id: updatedUser.id,
         name: updatedUser.name || 'Unknown User',
@@ -178,6 +194,7 @@ function Profile() {
         company: updatedUser.company || 'Not provided',
         initials
       });
+
       localStorage.setItem('userData', JSON.stringify({
         id: updatedUser.id,
         name: updatedUser.name,
@@ -185,6 +202,7 @@ function Profile() {
         email: updatedUser.email,
         company: updatedUser.company
       }));
+
       setEditMode(false);
       setShowPassword(false);
       setShowConfirmPassword(false);
@@ -197,7 +215,6 @@ function Profile() {
 
   if (loading) {
     return (
-      
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <p className="text-white text-lg">Loading...</p>
       </div>
@@ -215,12 +232,12 @@ function Profile() {
             <h2 className="text-2xl font-bold text-white">{user.name}</h2>
             <p className="text-sm text-slate-400">{user.role}</p>
           </div>
+
           {editMode ? (
             <form onSubmit={handleSubmit} className="w-full space-y-4">
+              {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Name
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Name</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <User className="w-5 h-5 text-blue-400" />
@@ -236,10 +253,10 @@ function Profile() {
                   />
                 </div>
               </div>
+
+              {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Email
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Mail className="w-5 h-5 text-blue-400" />
@@ -255,10 +272,10 @@ function Profile() {
                   />
                 </div>
               </div>
+
+              {/* Company */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Company
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Company</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Briefcase className="w-5 h-5 text-blue-400" />
@@ -274,10 +291,10 @@ function Profile() {
                   />
                 </div>
               </div>
+
+              {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  New Password (optional)
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">New Password (optional)</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Lock className="w-5 h-5 text-blue-400" />
@@ -299,10 +316,10 @@ function Profile() {
                   </button>
                 </div>
               </div>
+
+              {/* Confirm Password */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Confirm New Password
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Confirm New Password</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Lock className="w-5 h-5 text-blue-400" />
@@ -324,6 +341,8 @@ function Profile() {
                   </button>
                 </div>
               </div>
+
+              {/* Buttons */}
               <div className="flex space-x-4">
                 <button
                   type="submit"
