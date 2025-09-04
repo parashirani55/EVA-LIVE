@@ -1,32 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Eye, X, Phone, Activity } from 'lucide-react';
-
+import axios from "axios";
 function Calls() {
     const [calls, setCalls] = useState([]); // past call history
     const [liveCalls, setLiveCalls] = useState([]); // ongoing calls
     const [selectedCall, setSelectedCall] = useState(null);
 
     // Fetch call history
-    const fetchCallHistory = async () => {
-        try {
-            const res = await fetch('/api/call-history');
-            const data = await res.json();
-            setCalls(data);
-        } catch (err) {
-            console.error('Error fetching call history', err);
-        }
-    };
+const fetchCallHistory = async () => {
+  try {
+    const res = await axios.get("/api/call-history");
+    setCalls(res.data);
+  } catch (err) {
+    console.error("Error fetching call history", err);
+  }
+};
 
     // Fetch live calls
-    const fetchLiveCalls = async () => {
-        try {
-            const res = await fetch('/api/active-calls');
-            const data = await res.json();
-            setLiveCalls(data);
-        } catch (err) {
-            console.error('Error fetching live calls', err);
-        }
-    };
+const fetchLiveCalls = async () => {
+  try {
+    const res = await axios.get("/api/active-calls");
+    setLiveCalls(res.data);
+  } catch (err) {
+    console.error("Error fetching live calls", err);
+  }
+};
 
     // Fetch both on mount
     useEffect(() => {
