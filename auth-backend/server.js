@@ -292,15 +292,17 @@ app.get('/api/dashboard-stats', async (req, res) => {
     const minutes = Math.floor(avgSec / 60);
     const seconds = avgSec % 60;
 
-    const [weeklyData] = await db.query(`
-      SELECT 
-        DATE_FORMAT(started_at, '%a') AS name,
-        COUNT(*) AS calls
-      FROM calls
-      WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-      GROUP BY DATE(started_at)
-      ORDER BY DATE(started_at)
-    `);
+const [weeklyData] = await db.query(`
+  SELECT 
+    DATE(started_at) AS call_date,
+    DATE_FORMAT(started_at, '%a') AS name,
+    COUNT(*) AS calls
+  FROM calls
+  WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+  GROUP BY DATE(started_at)
+  ORDER BY DATE(started_at)
+`);
+
 
     res.json({
       stats: [
