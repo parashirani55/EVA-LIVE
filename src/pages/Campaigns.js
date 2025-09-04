@@ -16,7 +16,7 @@ import {
 import { generateScript } from "../utils/generateScript";
 
 // Axios default
-axios.defaults.baseURL = "http://localhost:5000";
+axios.defaults.baseURL = process.env.REACT_APP_API_URL;
 
 // Axios interceptor for Authorization
 axios.interceptors.request.use((config) => {
