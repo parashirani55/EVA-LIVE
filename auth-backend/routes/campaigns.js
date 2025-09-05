@@ -137,16 +137,20 @@ router.get('/:id/leads', authMiddleware, async (req, res) => {
 
 // POST bulk call for all leads
 // POST bulk call for all leads
+// POST bulk call for all leads
 router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
   const campaignId = req.params.id;
 
   try {
+    console.log("📞 Starting bulk call for campaign:", campaignId);
+
     const campaigns = await query(
       "SELECT file_path, script FROM campaigns WHERE id = ? AND user_id = ?",
       [campaignId, req.user.id]
     );
 
     if (!campaigns.length || !campaigns[0].file_path) {
+      console.warn("⚠️ No leads CSV found for campaign:", campaignId);
       return res.status(404).json({ error: "No leads CSV found for this campaign" });
     }
 
@@ -154,11 +158,20 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
     const script = campaigns[0].script || "Hello {username}, I am EVA calling from {company}.";
     const companyName = req.user.company || "Our Company";
 
-    const leads = await readCSV(path.join(uploadDir, campaignFile));
-    if (!leads.length) return res.status(404).json({ error: "CSV file is empty" });
+    console.log("✅ Found campaign file:", campaignFile);
+    console.log("✅ Using script:", script);
 
-    // Verify CSV has 'name' and 'phone' columns
+    const leads = await readCSV(path.join(uploadDir, campaignFile));
+    console.log("📂 Loaded leads:", leads.length);
+
+    if (!leads.length) {
+      console.warn("⚠️ CSV file is empty for campaign:", campaignId);
+      return res.status(404).json({ error: "CSV file is empty" });
+    }
+
+    // Verify CSV has required columns
     if (!leads[0].hasOwnProperty("name") || !leads[0].hasOwnProperty("phone")) {
+      console.error("❌ CSV missing 'name' or 'phone' columns");
       return res.status(400).json({ error: "CSV file must contain 'name' and 'phone' columns" });
     }
 
@@ -166,21 +179,21 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
       const customer = lead.name || "Customer";
       const phone = lead.phone;
       if (!phone) {
-        console.warn(`Skipping lead with missing phone number for ${customer}`);
+        console.warn(`⚠️ Skipping lead with missing phone number for ${customer}`);
         continue;
       }
 
-      // Personalize the script
+      // Personalize script
       const personalizedScript = script
         .replace("{username}", customer)
         .replace("{company}", companyName);
 
-      // Twilio voice URL with personalized greeting
-      const twimlUrl = `${process.env.PUBLIC_URL}/twilio/voice?customer=${encodeURIComponent(
+      // ✅ FIX: point Twilio to existing TwiML route
+      const twimlUrl = `${process.env.PUBLIC_URL}/api/campaigns/twiml/${campaignId}?customer=${encodeURIComponent(
         customer
-      )}&company=${encodeURIComponent(companyName)}&campaignId=${campaignId}`;
+      )}&company=${encodeURIComponent(companyName)}`;
 
-      console.log("Initiating call with TwiML URL:", twimlUrl);
+      console.log("📞 Initiating call →", phone, "with TwiML URL:", twimlUrl);
 
       // Initiate Twilio call
       const call = await client.calls.create({
@@ -192,16 +205,21 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
         statusCallbackMethod: "POST",
       });
 
-      // Save call in database with personalized script in ai_message
+      console.log("✅ Twilio call initiated, SID:", call.sid);
+
+      // Save call in DB
       await query(
         "INSERT INTO calls (customer, phone, started_at, status, campaign, twilio_sid, ai_message) VALUES (?, ?, NOW(), ?, ?, ?, ?)",
         [customer, phone, "initiated", campaignId, call.sid, personalizedScript]
       );
+
+      console.log("💾 Call saved to DB for", customer, "phone:", phone);
     }
 
+    console.log("🎉 Bulk call process completed for campaign:", campaignId);
     res.json({ success: true, message: "Calls initiated with personalized greetings" });
   } catch (error) {
-    console.error("Error starting campaign calls:", error.message, error.stack);
+    console.error("❌ Error starting campaign calls:", error.message, error.stack);
     res.status(500).json({ success: false, error: "Failed to start calls", details: error.message });
   }
 });
