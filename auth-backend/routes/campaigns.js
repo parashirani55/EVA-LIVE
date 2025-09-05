@@ -1,241 +1,180 @@
-// routes/campaign.js
+// routes/campaigns.js
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const csv = require("csv-parser");
-const db = require("../config/db"); // MySQL pool
+const db = require("../config/db"); // promise-based pool
 const authMiddleware = require("../middleware/authMiddleware");
 const twilio = require("twilio");
-const VoiceResponse = require("twilio").twiml.VoiceResponse;
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-// ===================== Setup ===================== //
+// Ensure uploads directory exists
 const uploadDir = path.join(__dirname, "../Uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
+// Multer setup with proper filename
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".csv";
+    cb(null, Date.now() + ext);
+  },
+});
 const upload = multer({
-  dest: uploadDir,
+  storage,
   fileFilter: (req, file, cb) => {
     if (file.mimetype === "text/csv") cb(null, true);
     else cb(new Error("Only CSV files are allowed"));
   },
 });
 
-// Run query with logging
-const query = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    console.log("🟡 SQL QUERY:", sql, "PARAMS:", params);
-    db.query(sql, params, (err, results) => {
-      if (err) {
-        console.error("❌ SQL ERROR:", err.message);
-        return reject(err);
-      }
-      console.log("✅ SQL RESULT:", results);
-      resolve(results);
-    });
-  });
-
-// Read CSV file with logging
+// Helper to read CSV file
 const readCSV = (filePath) =>
   new Promise((resolve, reject) => {
-    console.log("📂 Reading CSV:", filePath);
     const results = [];
     fs.createReadStream(filePath)
       .pipe(csv())
       .on("data", (data) => results.push(data))
-      .on("end", () => {
-        console.log("✅ CSV loaded:", results.length, "rows");
-        resolve(results);
-      })
-      .on("error", (err) => {
-        console.error("❌ CSV read error:", err.message);
-        reject(err);
-      });
+      .on("end", () => resolve(results))
+      .on("error", reject);
   });
 
 // ===================== Campaign Routes ===================== //
 
-// GET all campaigns
+// GET all campaigns for logged-in user
 router.get("/", authMiddleware, async (req, res) => {
-  console.log("📡 GET /api/campaigns by user:", req.user.id);
   try {
-    const campaigns = await query(
-      "SELECT * FROM campaigns WHERE user_id = ?",
-      [req.user.id]
-    );
+    const [campaigns] = await db.query("SELECT * FROM campaigns WHERE user_id = ?", [req.user.id]);
     res.json(campaigns);
   } catch (err) {
-    console.error("❌ GET campaigns error:", err);
+    console.error("GET /api/campaigns error:", err);
     res.status(500).json({ error: "Database error", details: err.message });
   }
 });
 
-// POST create campaign
+// POST create new campaign
 router.post("/", authMiddleware, upload.single("file"), async (req, res) => {
-  console.log("📡 POST /api/campaigns body:", req.body);
   try {
-    const { name, description, voice, script, service, customService, startTime } =
-      req.body;
+    const { name, description, voice, script, service, customService, startTime } = req.body;
     const filePath = req.file ? req.file.filename : null;
 
+    // Prepend personalized greeting
     const greetingPrefix = "Hello {username}, I am EVA calling from {company}. ";
     const finalScript = script ? `${greetingPrefix}${script}` : greetingPrefix;
 
-    const result = await query(
+    const [result] = await db.query(
       `INSERT INTO campaigns
        (user_id, name, description, voice, script, file_path, service, custom_service, start_time, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled')`,
-      [
-        req.user.id,
-        name,
-        description,
-        voice,
-        finalScript,
-        filePath,
-        service,
-        customService,
-        startTime,
-      ]
+      [req.user.id, name, description, voice, finalScript, filePath, service, customService, startTime]
     );
 
-    console.log("✅ Campaign created:", result.insertId);
     res.json({ id: result.insertId, message: "Campaign created", filePath });
   } catch (err) {
-    console.error("❌ POST campaign error:", err);
+    console.error("POST /api/campaigns error:", err);
     res.status(500).json({ error: "Database error", details: err.message });
   }
 });
 
 // PUT update campaign
 router.put("/:id", authMiddleware, upload.single("file"), async (req, res) => {
-  console.log("📡 PUT /api/campaigns/:id body:", req.body);
   try {
     const campaignId = req.params.id;
-    const { name, description, voice, script, service, customService, startTime } =
-      req.body;
+    const { name, description, voice, script, service, customService, startTime } = req.body;
     const filePath = req.file ? req.file.filename : null;
 
     const greetingPrefix = "Hello {username}, I am EVA calling from {company}. ";
     const finalScript = script ? `${greetingPrefix}${script}` : greetingPrefix;
 
-    const [existing] = await query(
-      "SELECT user_id FROM campaigns WHERE id = ? AND user_id = ?",
+    // Verify ownership
+    const [existing] = await db.query(
+      "SELECT id FROM campaigns WHERE id = ? AND user_id = ?",
       [campaignId, req.user.id]
     );
-    if (!existing) {
-      console.warn("⚠️ Campaign not found:", campaignId);
-      return res
-        .status(404)
-        .json({ error: "Campaign not found or unauthorized" });
-    }
+    if (!existing.length) return res.status(404).json({ error: "Campaign not found or unauthorized" });
 
-    await query(
+    await db.query(
       `UPDATE campaigns SET
-         name = ?, description = ?, voice = ?, script = ?, file_path = COALESCE(?, file_path),
-         service = ?, custom_service = ?, start_time = ?, status = 'Scheduled'
-       WHERE id = ?`,
-      [
-        name,
-        description,
-        voice,
-        finalScript,
-        filePath,
-        service,
-        customService,
-        startTime,
-        campaignId,
-      ]
+        name = ?, description = ?, voice = ?, script = ?, file_path = COALESCE(?, file_path),
+        service = ?, custom_service = ?, start_time = ?, status = 'Scheduled'
+      WHERE id = ?`,
+      [name, description, voice, finalScript, filePath, service, customService, startTime, campaignId]
     );
 
-    console.log("✅ Campaign updated:", campaignId);
     res.json({ message: "Campaign updated" });
   } catch (err) {
-    console.error("❌ PUT campaign error:", err);
+    console.error("PUT /api/campaigns/:id error:", err);
     res.status(500).json({ error: "Database error", details: err.message });
   }
 });
 
-// GET leads from CSV
+// GET CSV leads for a campaign
 router.get("/:id/leads", authMiddleware, async (req, res) => {
-  console.log("📡 GET /api/campaigns/:id/leads");
   try {
     const campaignId = req.params.id;
-    const rows = await query(
+    const [rows] = await db.query(
       "SELECT file_path FROM campaigns WHERE id = ? AND user_id = ?",
       [campaignId, req.user.id]
     );
-
-    if (!rows.length || !rows[0].file_path) {
-      console.warn("⚠️ No leads file for campaign:", campaignId);
-      return res.status(404).json({ error: "No leads file found" });
-    }
+    if (!rows.length || !rows[0].file_path) return res.status(404).json({ error: "No leads file found" });
 
     const leads = await readCSV(path.join(uploadDir, rows[0].file_path));
     res.json(leads);
   } catch (err) {
-    console.error("❌ GET leads error:", err);
+    console.error("Error reading CSV leads:", err);
     res.status(500).json({ error: "Failed to read leads", details: err.message });
   }
 });
 
-// ===================== Twilio Bulk Calls ===================== //
+// ===================== Twilio & Bulk Call Routes ===================== //
+
+// POST bulk call
 router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
   const campaignId = req.params.id;
-  console.log("📡 POST bulk call for campaign:", campaignId);
 
   try {
-    const campaigns = await query(
+    const [campaigns] = await db.query(
       "SELECT file_path, script FROM campaigns WHERE id = ? AND user_id = ?",
       [campaignId, req.user.id]
     );
 
     if (!campaigns.length || !campaigns[0].file_path) {
-      console.warn("⚠️ No CSV for campaign:", campaignId);
-      return res.status(404).json({ error: "No leads CSV found" });
+      return res.status(404).json({ error: "No leads CSV found for this campaign" });
     }
 
-    const { file_path: campaignFile, script } = campaigns[0];
+    const campaignFile = campaigns[0].file_path;
+    const script = campaigns[0].script || "Hello {username}, I am EVA calling from {company}.";
     const companyName = req.user.company || "Our Company";
 
     const leads = await readCSV(path.join(uploadDir, campaignFile));
-    if (!leads.length) {
-      console.warn("⚠️ Empty CSV:", campaignId);
-      return res.status(404).json({ error: "CSV file is empty" });
+    if (!leads.length) return res.status(404).json({ error: "CSV file is empty" });
+
+    if (!leads[0].hasOwnProperty("name") || !leads[0].hasOwnProperty("phone")) {
+      return res.status(400).json({ error: "CSV must contain 'name' and 'phone' columns" });
     }
 
-    if (!("name" in leads[0]) || !("phone" in leads[0])) {
-      console.error("❌ CSV missing name/phone columns");
-      return res
-        .status(400)
-        .json({ error: "CSV must contain 'name' and 'phone' columns" });
-    }
+    await Promise.all(
+      leads.map(async (lead) => {
+        const customer = lead.name || "Customer";
+        const phone = lead.phone;
+        if (!phone) {
+          console.warn(`Skipping lead with missing phone for ${customer}`);
+          return;
+        }
 
-    for (const lead of leads) {
-      const customer = lead.name || "Customer";
-      const phone = lead.phone;
-      if (!phone) {
-        console.warn("⚠️ Skipping missing phone for", customer);
-        continue;
-      }
+        const personalizedScript = script
+          .replace("{username}", customer)
+          .replace("{company}", companyName);
 
-      const personalizedScript = (script || "").replace(
-        "{username}",
-        customer
-      ).replace("{company}", companyName);
+        const twimlUrl = `${process.env.PUBLIC_URL}/twilio/voice?customer=${encodeURIComponent(
+          customer
+        )}&company=${encodeURIComponent(companyName)}&campaignId=${campaignId}`;
 
-      const twimlUrl = `${process.env.PUBLIC_URL}/api/campaigns/twiml/${campaignId}?customer=${encodeURIComponent(
-        customer
-      )}&company=${encodeURIComponent(companyName)}`;
+        console.log("Initiating call:", phone, twimlUrl);
 
-      console.log("📞 Calling:", phone, "→ TwiML URL:", twimlUrl);
-
-      try {
         const call = await client.calls.create({
           url: twimlUrl,
           to: phone,
@@ -245,66 +184,48 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
           statusCallbackMethod: "POST",
         });
 
-        console.log("✅ Twilio call SID:", call.sid);
-
-        await query(
+        await db.query(
           "INSERT INTO calls (customer, phone, started_at, status, campaign, twilio_sid, ai_message) VALUES (?, ?, NOW(), ?, ?, ?, ?)",
           [customer, phone, "initiated", campaignId, call.sid, personalizedScript]
         );
+      })
+    );
 
-        console.log("💾 Call saved:", customer, phone);
-      } catch (err) {
-        console.error("❌ Twilio error for", phone, ":", err.message);
-      }
-    }
-
-    console.log("🎉 Bulk calls done:", campaignId);
-    res.json({ success: true, message: "Calls initiated" });
+    res.json({ success: true, message: "Calls initiated with personalized greetings" });
   } catch (err) {
-    console.error("❌ Bulk call error:", err);
-    res.status(500).json({ error: "Failed to start calls", details: err.message });
+    console.error("Error starting campaign calls:", err);
+    res.status(500).json({ success: false, error: "Failed to start calls", details: err.message });
   }
 });
 
-// GET calls for a campaign
+// GET all calls for a campaign
 router.get("/:id/calls", authMiddleware, async (req, res) => {
-  console.log("📡 GET calls for campaign:", req.params.id);
   try {
-    const calls = await query(
+    const [calls] = await db.query(
       "SELECT * FROM calls WHERE campaign = ? ORDER BY started_at DESC",
       [req.params.id]
     );
     res.json(calls);
   } catch (err) {
-    console.error("❌ GET calls error:", err);
-    res.status(500).json({ error: "Failed to fetch call logs" });
+    console.error("GET /:id/calls error:", err);
+    res.status(500).json({ error: "Failed to fetch call logs", details: err.message });
   }
 });
 
-// GET TwiML for Twilio
+// GET TwiML response for Twilio stream
 router.get("/twiml/:campaignId", async (req, res) => {
-  console.log("📡 GET TwiML for campaign:", req.params.campaignId);
   try {
     const campaignId = req.params.campaignId;
     const customer = req.query.customer || "Customer";
 
-    const rows = await query(
-      "SELECT script, user_id FROM campaigns WHERE id = ?",
-      [campaignId]
-    );
-    if (!rows.length) {
-      console.warn("⚠️ Campaign not found:", campaignId);
-      return res.status(404).send("Campaign not found");
-    }
+    const [rows] = await db.query("SELECT script, user_id FROM campaigns WHERE id = ?", [campaignId]);
+    if (!rows.length) return res.status(404).send("Campaign not found");
 
-    const [userRow] = await query(
-      "SELECT company FROM users WHERE id = ? LIMIT 1",
-      [rows[0].user_id]
-    );
+    const [userRow] = await db.query("SELECT company FROM users WHERE id = ? LIMIT 1", [rows[0].user_id]);
     const companyName = userRow?.company || "Our Company";
 
     res.type("text/xml");
-    const xml = `
+    res.send(`
       <Response>
         <Connect>
           <Stream url="${process.env.WS_SERVER_URL}/twilio/stream?campaignId=${campaignId}&customer=${encodeURIComponent(
@@ -312,13 +233,20 @@ router.get("/twiml/:campaignId", async (req, res) => {
     )}&company=${encodeURIComponent(companyName)}" />
         </Connect>
       </Response>
-    `;
-    console.log("✅ Sending TwiML XML:", xml);
-    res.send(xml);
+    `);
   } catch (err) {
-    console.error("❌ TwiML error:", err);
+    console.error("GET /twiml error:", err);
     res.status(500).send("Server error");
   }
+});
+
+// Placeholder: Twilio voice + status callbacks
+router.post("/twilio/voice", (req, res) => {
+  res.type("text/xml").send(`<Response><Say>Call connected</Say></Response>`);
+});
+router.post("/twilio/status", (req, res) => {
+  console.log("📞 Status Callback:", req.body);
+  res.sendStatus(200);
 });
 
 module.exports = router;
