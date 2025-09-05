@@ -1,248 +1,561 @@
-const express = require('express');
-const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const csv = require('csv-parser');
-const db = require('../config/db'); // MySQL connection
-const authMiddleware = require('../middleware/authMiddleware');
-const twilio = require('twilio');
-const VoiceResponse = require('twilio').twiml.VoiceResponse;
+// src/pages/Campaigns.jsx
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { Navigate } from "react-router-dom";
+import {
+  Plus,
+  Upload,
+  Play,
+  Calendar,
+  Pause,
+  Clock,
+  Megaphone,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import { generateScript } from "../utils/generateScript";
 
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+// Axios default
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || "http://135.237.127.43:3000";
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../Uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
-// Multer setup for file uploads
-const upload = multer({
-  dest: uploadDir,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/csv') cb(null, true);
-    else cb(new Error('Only CSV files are allowed'));
-  },
+// Axios interceptor for Authorization
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
-// Helper to run MySQL queries as Promise
-const query = (sql, params) =>
-  new Promise((resolve, reject) => {
-    db.query(sql, params, (err, results) => {
-      if (err) reject(err);
-      else resolve(results);
-    });
+const serviceSuggestions = {
+  "service-reminder": [
+    "Your car is due for its regular maintenance service. Would you like to schedule now?",
+    "Reminder: Your vehicle's oil change is coming up.",
+    "It’s time for your periodic inspection and service.",
+  ],
+  "insurance-renewal": [
+    "Your car insurance is expiring soon. Renew today to avoid disruption.",
+    "Reminder: Renew your insurance before the deadline.",
+    "Exclusive deal: Save more by renewing your vehicle insurance early.",
+  ],
+  "warranty-expiry": [
+    "Your car warranty is expiring soon. Would you like to extend coverage?",
+    "Reminder: Vehicle warranty ends next month.",
+    "Protect your car with an extended warranty package.",
+  ],
+  "loan-payment": [
+    "Reminder: Your car loan installment is due this week.",
+    "Please arrange your EMI payment to avoid late fees.",
+    "Would you like to set up auto-debit for your loan?",
+  ],
+  "promo-service": [
+    "Special offer: Discounted car wash and detailing this week.",
+    "Enjoy seasonal discounts on brake and tire services.",
+    "Exclusive: Save on engine diagnostics packages.",
+  ],
+  "tire-replacement": [
+    "Your tires are nearing replacement. Book an appointment today.",
+    "Special promo: Buy 3 tires, get 1 free.",
+    "Ensure safety – replace worn-out tires now.",
+  ],
+  "battery-check": [
+    "Reminder: Time for a battery health checkup.",
+    "Exclusive deal: Free battery check with service.",
+    "Avoid breakdowns – book your battery replacement today.",
+  ],
+  "recall-notice": [
+    "Important: Your vehicle may have a recall. Please contact us.",
+    "Recall alert: Safety check needed for your vehicle.",
+    "Schedule your free recall service appointment.",
+  ],
+  "roadside-assistance": [
+    "Do you want to enroll in our roadside assistance plan?",
+    "We offer 24/7 roadside help – subscribe today.",
+    "Stay safe – add roadside coverage for emergencies.",
+  ],
+  "registration-renewal": [
+    "Reminder: Your vehicle registration expires soon.",
+    "Avoid penalties – renew your car registration today.",
+    "Your registration renewal window is open now.",
+  ],
+  "accessories-offer": [
+    "Special promo: Discounts on seat covers and car mats.",
+    "Upgrade your ride with premium accessories.",
+    "Exclusive offer: Free installation with accessory purchase.",
+  ],
+  "test-drive-invite": [
+    "Book a test drive for our latest car models.",
+    "Exclusive invite: Experience the all-new SUV.",
+    "Would you like to schedule a test drive at your convenience?",
+  ],
+  feedback: [
+    "How was your recent car servicing experience?",
+    "We’d love your feedback about our automotive service.",
+    "Would you recommend our workshop to friends?",
+  ],
+  "vip-customers": [
+    "Exclusive loyalty offer just for you.",
+    "As our VIP customer, you get special discounts on services.",
+    "Enjoy free checkup this month as part of our loyalty program.",
+  ],
+  other: ["Custom automotive service – describe your own use case."],
+};
+
+function Campaigns() {
+  const token = localStorage.getItem("accessToken");
+
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    voice: "",
+    script: "",
+    file: null,
+    startTime: "",
+    service: "",
+    customService: "",
   });
 
-// Helper to read CSV file
-const readCSV = (filePath) =>
-  new Promise((resolve, reject) => {
-    const results = [];
-    fs.createReadStream(filePath)
-      .pipe(csv())
-      .on('data', (data) => results.push(data))
-      .on('end', () => resolve(results))
-      .on('error', reject);
-  });
+  // Fetch campaigns
+  useEffect(() => {
+    if (!token) return;
+    fetchCampaigns();
+  }, [token]);
 
-// ===================== Campaign Routes ===================== //
-
-// GET all campaigns for logged-in user
-router.get('/', authMiddleware, async (req, res) => {
-  try {
-    const campaigns = await query('SELECT * FROM campaigns WHERE user_id = ?', [req.user.id]);
-    res.json(campaigns);
-  } catch (err) {
-    console.error('GET /api/campaigns error:', err.message, err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
-  }
-});
-
-// POST create new campaign
-router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
-  try {
-    const { name, description, voice, script, service, customService, startTime } = req.body;
-    const filePath = req.file ? req.file.filename : null;
-
-    // Prepend personalized greeting to the script
-    const greetingPrefix = "Hello {username}, I am EVA calling from {company}. ";
-    const finalScript = script ? `${greetingPrefix}${script}` : greetingPrefix;
-
-    const result = await query(
-      `INSERT INTO campaigns
-      (user_id, name, description, voice, script, file_path, service, custom_service, start_time, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled')`,
-      [req.user.id, name, description, voice, finalScript, filePath, service, customService, startTime]
-    );
-
-    res.json({ id: result.insertId, message: 'Campaign created', filePath });
-  } catch (err) {
-    console.error('POST /api/campaigns error:', err.message, err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
-  }
-});
-
-// PUT update campaign
-router.put('/:id', authMiddleware, upload.single('file'), async (req, res) => {
-  try {
-    const campaignId = req.params.id;
-    const { name, description, voice, script, service, customService, startTime } = req.body;
-    const filePath = req.file ? req.file.filename : null;
-
-    // Prepend personalized greeting to the script
-    const greetingPrefix = "Hello {username}, I am EVA calling from {company}. ";
-    const finalScript = script ? `${greetingPrefix}${script}` : greetingPrefix;
-
-    // Verify campaign exists and belongs to user
-    const [existing] = await query('SELECT user_id FROM campaigns WHERE id = ? AND user_id = ?', [
-      campaignId,
-      req.user.id,
-    ]);
-    if (!existing) return res.status(404).json({ error: 'Campaign not found or unauthorized' });
-
-    // Update campaign
-    await query(
-      `UPDATE campaigns SET
-        name = ?, description = ?, voice = ?, script = ?, file_path = COALESCE(?, file_path),
-        service = ?, custom_service = ?, start_time = ?, status = 'Scheduled'
-      WHERE id = ?`,
-      [name, description, voice, finalScript, filePath, service, customService, startTime, campaignId]
-    );
-
-    res.json({ message: 'Campaign updated' });
-  } catch (err) {
-    console.error('PUT /api/campaigns/:id error:', err.message, err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
-  }
-});
-
-// GET CSV leads for a campaign
-router.get('/:id/leads', authMiddleware, async (req, res) => {
-  try {
-    const campaignId = req.params.id;
-    const rows = await query('SELECT file_path FROM campaigns WHERE id = ? AND user_id = ?', [
-      campaignId,
-      req.user.id,
-    ]);
-    if (!rows.length || !rows[0].file_path) return res.status(404).json({ error: 'No leads file found' });
-
-    const leads = await readCSV(path.join(uploadDir, rows[0].file_path));
-    res.json(leads);
-  } catch (err) {
-    console.error('Error reading CSV leads:', err.message, err.stack);
-    res.status(500).json({ error: 'Failed to read leads', details: err.message });
-  }
-});
-
-// ===================== Twilio & Bulk Call Routes ===================== //
-
-// POST bulk call for all leads
-// POST bulk call for all leads
-router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
-  const campaignId = req.params.id;
-
-  try {
-    const campaigns = await query(
-      "SELECT file_path, script FROM campaigns WHERE id = ? AND user_id = ?",
-      [campaignId, req.user.id]
-    );
-
-    if (!campaigns.length || !campaigns[0].file_path) {
-      return res.status(404).json({ error: "No leads CSV found for this campaign" });
+  const fetchCampaigns = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get("/api/campaigns");
+      setCampaigns(res.data || []);
+    } catch (err) {
+      console.error("Fetch campaigns error", err);
+      setCampaigns([]);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const campaignFile = campaigns[0].file_path;
-    const script = campaigns[0].script || "Hello {username}, I am EVA calling from {company}.";
-    const companyName = req.user.company || "Our Company";
+  // Handle input changes
+  const handleChange = (e) => {
+    const { name, value, files } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: files ? files[0] : value }));
+  };
 
-    const leads = await readCSV(path.join(uploadDir, campaignFile));
-    if (!leads.length) return res.status(404).json({ error: "CSV file is empty" });
-
-    // Verify CSV has 'name' and 'phone' columns
-    if (!leads[0].hasOwnProperty("name") || !leads[0].hasOwnProperty("phone")) {
-      return res.status(400).json({ error: "CSV file must contain 'name' and 'phone' columns" });
+  // AI Script generation
+  const handleGenerateScript = async () => {
+    if (!formData.description.trim())
+      return alert("Enter a description first.");
+    try {
+      setGenerating(true);
+      const script = await generateScript(formData.description);
+      setFormData((prev) => ({ ...prev, script }));
+    } catch (err) {
+      console.error("Script generation error:", err);
+      alert("Failed to generate script.");
+    } finally {
+      setGenerating(false);
     }
+  };
 
-    for (const lead of leads) {
-      const customer = lead.name || "Customer";
-      const phone = lead.phone;
-      if (!phone) {
-        console.warn(`Skipping lead with missing phone number for ${customer}`);
-        continue;
-      }
+  // Create campaign
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!token) return alert("You must be logged in.");
 
-      // Personalize the script
-      const personalizedScript = script
-        .replace("{username}", customer)
-        .replace("{company}", companyName);
+    const selectedService =
+      formData.service === "other" ? formData.customService : formData.service;
 
-      // Twilio voice URL with personalized greeting
-      const twimlUrl = `${process.env.PUBLIC_URL}/twilio/voice?customer=${encodeURIComponent(
-        customer
-      )}&company=${encodeURIComponent(companyName)}&campaignId=${campaignId}`;
+    const data = new FormData();
+    Object.entries({
+      ...formData,
+      service: selectedService,
+    }).forEach(([key, value]) => value && data.append(key, value));
 
-      console.log("Initiating call with TwiML URL:", twimlUrl);
-
-      // Initiate Twilio call
-      const call = await client.calls.create({
-        url: twimlUrl,
-        to: phone,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        statusCallback: `${process.env.PUBLIC_URL}/twilio/status`,
-        statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-        statusCallbackMethod: "POST",
+    setSubmitting(true);
+    try {
+      await axios.post("/api/campaigns", data, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
-      // Save call in database with personalized script in ai_message
-      await query(
-        "INSERT INTO calls (customer, phone, started_at, status, campaign, twilio_sid, ai_message) VALUES (?, ?, NOW(), ?, ?, ?, ?)",
-        [customer, phone, "initiated", campaignId, call.sid, personalizedScript]
-      );
+      await fetchCampaigns();
+      setFormData({
+        name: "",
+        description: "",
+        voice: "",
+        script: "",
+        file: null,
+        startTime: "",
+        service: "",
+        customService: "",
+      });
+      alert("✅ Campaign created!");
+    } catch (err) {
+      console.error("Create campaign error", err);
+      alert("❌ Failed to create campaign.");
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    res.json({ success: true, message: "Calls initiated with personalized greetings" });
-  } catch (error) {
-    console.error("Error starting campaign calls:", error.message, error.stack);
-    res.status(500).json({ success: false, error: "Failed to start calls", details: error.message });
-  }
-});
+  // Bulk call
+  const handleBulkCall = async (campaignId) => {
+    if (!window.confirm("Call all leads for this campaign?")) return;
+    try {
+      const res = await axios.post(`/api/campaigns/${campaignId}/call-bulk`);
+      console.log("Bulk call response:", res.data);
+      alert("✅ Bulk call initiated! Check console for details.");
+    } catch (err) {
+      console.error("Bulk call error", err);
+      alert("❌ Bulk call failed. See console.");
+    }
+  };
 
-// GET all calls for a campaign
-router.get('/:id/calls', authMiddleware, async (req, res) => {
-  try {
-    const calls = await query('SELECT * FROM calls WHERE campaign = ? ORDER BY started_at DESC', [
-      req.params.id,
-    ]);
-    res.json(calls);
-  } catch (err) {
-    console.error('GET /:id/calls error:', err.message, err.stack);
-    res.status(500).json({ error: 'Failed to fetch call logs', details: err.message });
-  }
-});
+  // Map status to style
+  const getStatusConfig = (status) => {
+    switch (status) {
+      case "Active":
+        return { className: "bg-emerald-100 text-emerald-700", icon: Play };
+      case "Answered":
+        return { className: "bg-green-100 text-green-700", icon: CheckCircle };
+      case "Failed":
+        return { className: "bg-red-100 text-red-700", icon: XCircle };
+      case "Scheduled":
+        return { className: "bg-blue-100 text-blue-700", icon: Calendar };
+      case "Paused":
+        return { className: "bg-amber-100 text-amber-700", icon: Pause };
+      default:
+        return { className: "bg-gray-100 text-gray-700", icon: Clock };
+    }
+  };
 
-// GET TwiML response for Twilio stream
-router.get('/twiml/:campaignId', async (req, res) => {
-  try {
-    const campaignId = req.params.campaignId;
-    const customer = req.query.customer || 'Customer'; // Use query param if provided
-    const rows = await query('SELECT script, user_id, file_path FROM campaigns WHERE id = ?', [campaignId]);
-    if (!rows.length) return res.status(404).send('Campaign not found');
+  if (!token) return <Navigate to="/login" replace />;
 
-    // Fetch company name
-    const [userRow] = await query('SELECT company FROM users WHERE id = ? LIMIT 1', [rows[0].user_id]);
-    const companyName = userRow?.company || 'Our Company';
+  return (
+    <div className="space-y-8 p-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">
+          Campaign Management
+        </h1>
+        <p className="text-slate-600 mt-1">
+          Create and manage your AI voice campaigns
+        </p>
+      </div>
 
-    res.type('text/xml');
-    res.send(`
-      <Response>
-        <Connect>
-          <Stream url="${process.env.WS_SERVER_URL}/twilio/stream?campaignId=${campaignId}&customer=${encodeURIComponent(customer)}&company=${encodeURIComponent(companyName)}" />
-        </Connect>
-      </Response>
-    `);
-  } catch (err) {
-    console.error('GET /twiml error:', err.message, err.stack);
-    res.status(500).send('Server error');
-  }
-});
+      {/* Create Campaign Form */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
+            <Plus className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="text-xl font-semibold text-slate-900">
+            Create New Campaign
+          </h2>
+        </div>
 
-module.exports = router;
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Name & Voice */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Campaign Name
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Enter campaign name"
+                required
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Voice Type
+              </label>
+              <select
+                name="voice"
+                value={formData.voice}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select voice...</option>
+                <option value="female-1">Female</option>
+                {/* <option value="male-1">Male - Calm</option> */}
+                {/* <option value="ai-neural">AI Neural Voice</option> */}
+              </select>
+            </div>
+          </div>
+
+          {/* Service & Description */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Service Type
+            </label>
+            <select
+              name="service"
+              value={formData.service}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select an automotive service...</option>
+              <option value="service-reminder">Service Reminders</option>
+              <option value="insurance-renewal">Insurance Renewal</option>
+              <option value="warranty-expiry">Warranty Expiry</option>
+              <option value="loan-payment">Loan Payment Reminders</option>
+              <option value="promo-service">Promotional Service Offers</option>
+              <option value="tire-replacement">Tire Replacement Offers</option>
+              <option value="battery-check">Battery Check / Replacement</option>
+              <option value="recall-notice">Recall Notice Calls</option>
+              <option value="roadside-assistance">
+                Roadside Assistance Enrollment
+              </option>
+              <option value="registration-renewal">Registration Renewal</option>
+              <option value="accessories-offer">
+                Accessories & Upgrade Offers
+              </option>
+              <option value="test-drive-invite">Test Drive Invitations</option>
+              <option value="feedback">Customer Feedback Calls</option>
+              <option value="vip-customers">
+                VIP / Loyalty Customer Offers
+              </option>
+              <option value="other">Other</option>
+            </select>
+
+            {formData.service === "other" && (
+              <input
+                type="text"
+                name="customService"
+                value={formData.customService}
+                onChange={handleChange}
+                placeholder="Enter your service type"
+                className="mt-3 w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Description
+            </label>
+            <textarea
+              name="description"
+              rows="3"
+              value={formData.description}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Describe your campaign objectives"
+            />
+          </div>
+
+          {/* Suggestions */}
+          {formData.service && (
+            <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <p className="text-sm font-medium text-slate-700 mb-2">
+                Suggestions for this service:
+              </p>
+              <ul className="list-disc list-inside text-slate-600 text-sm space-y-1">
+                {serviceSuggestions[formData.service]?.map((s, idx) => (
+                  <li
+                    key={idx}
+                    className="cursor-pointer hover:text-blue-600"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        description: prev.description
+                          ? prev.description + " " + s
+                          : s,
+                      }))
+                    }
+                  >
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Script */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center justify-between">
+              Call Script
+              <button
+                type="button"
+                onClick={handleGenerateScript}
+                disabled={generating || !formData.description}
+                className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+              >
+                {generating ? "Generating..." : "Generate with AI"}
+              </button>
+            </label>
+            <textarea
+              name="script"
+              rows="4"
+              value={formData.script}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter your call script or generate with AI"
+            />
+          </div>
+
+          {/* File & Start Time */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Upload Leads (CSV)
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  name="file"
+                  accept=".csv"
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl"
+                />
+                <Upload className="absolute right-3 top-3 w-5 h-5 text-slate-400 pointer-events-none" />
+              </div>
+              {formData.file && (
+                <p className="text-sm mt-2">Selected: {formData.file.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Start Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                name="startTime"
+                value={formData.startTime}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl"
+              />
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex justify-end space-x-3">
+            <button
+              type="button"
+              className="px-6 py-3 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50"
+              onClick={() => {
+                localStorage.setItem(
+                  "campaignDraft",
+                  JSON.stringify({
+                    ...formData,
+                    savedAt: new Date().toISOString(),
+                  })
+                );
+                alert("Draft saved locally");
+              }}
+            >
+              Save Draft
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg"
+            >
+              {submitting ? "Creating..." : "Create Campaign"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Campaign History */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+        <div className="p-6 border-b border-slate-200">
+          <h2 className="text-xl font-semibold text-slate-900">
+            Campaign History
+          </h2>
+        </div>
+
+        {loading ? (
+          <div className="p-8 text-center">Loading campaigns...</div>
+        ) : campaigns.length === 0 ? (
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Megaphone className="w-8 h-8 text-slate-400" />
+            </div>
+            <p className="text-slate-500">No campaigns created yet</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                    Name
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                    Voice
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                    Service
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                    Start Time
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {campaigns.map((c) => {
+                  const statusConfig = getStatusConfig(c.status);
+                  const StatusIcon = statusConfig.icon;
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 font-medium text-slate-900">
+                        {c.name}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">{c.voice}</td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {c.service || c.custom_service}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {c.start_time}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div
+                          className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig.className}`}
+                        >
+                          <StatusIcon className="w-3 h-3" />
+                          <span>{c.status}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 flex items-center space-x-2">
+                        <button
+                          className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-700 font-medium text-sm"
+                          onClick={() => handleBulkCall(c.id)}
+                        >
+                          <Play className="w-4 h-4" />
+                          <span>Call All Leads</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default Campaigns;
