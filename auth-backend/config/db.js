@@ -1,3 +1,4 @@
+// config/db.js
 const mysql = require('mysql2');
 const dotenv = require('dotenv');
 
@@ -9,8 +10,12 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
+  waitForConnections: true,
+  connectionLimit: 100,   // safe pool size
+  queueLimit: 0
 });
 
+// Optional: test once
 pool.getConnection((err, connection) => {
   if (err) {
     console.error('❌ MySQL connection failed:', err);
