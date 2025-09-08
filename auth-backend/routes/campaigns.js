@@ -267,9 +267,9 @@ router.post("/:id/call-bulk", authMiddleware, async (req, res) => {
 
         // Save call in database with personalized script in ai_message
         await db.execute(
-          "INSERT INTO calls (customer, phone, started_at, status, campaign, twilio_sid, ai_message, created_at) VALUES (?, ?, NOW(), ?, ?, ?, ?, NOW())",
-          [customer, phone, "initiated", campaignId, call.sid, personalizedScript]
-        );
+  "INSERT INTO calls (customer, phone, started_at, status, campaign, twilio_sid, ai_message) VALUES (?, ?, NOW(), ?, ?, ?, ?)",
+  [customer, phone, "initiated", campaignId, call.sid, personalizedScript]
+);
 
         successCount++;
       } catch (leadError) {
