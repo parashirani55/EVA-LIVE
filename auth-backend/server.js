@@ -20,9 +20,23 @@ const app = express();
 const server = http.createServer(app);
 
 // ---------- Middleware ----------
-app.use(cors());
+// ---------- Middleware ----------
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",                // React dev
+      "http://135.237.127.43:3000", 
+      "http://135.237.127.43:5000", // if you serve React from server
+      process.env.PUBLIC_URL    // your zrok frontend domain
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true, // allow cookies / auth headers
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 
 // ---------- JWT Verification Middleware ----------
 const verifyToken = (req, res, next) => {
