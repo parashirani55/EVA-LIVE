@@ -49,7 +49,10 @@ const db = mysql.createPool({
   user: process.env.DB_USER || 'root',
   port: process.env.DB_PORT || '3310',
   password: process.env.DB_PASS || process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'aivoicecaller'
+  database: process.env.DB_NAME || 'aivoicecaller',
+  connectionLimit: 10,
+  acquireTimeout: 60000,
+  multipleStatements: true
 });
 
 // Test connection
@@ -57,6 +60,10 @@ const db = mysql.createPool({
   try {
     await db.query('SELECT 1');
     console.log(`✅ MySQL connected to database: ${process.env.DB_NAME || 'aivoicecaller'}`);
+    
+    // Disable ONLY_FULL_GROUP_BY mode for this connection
+    await db.query("SET sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))");
+    console.log('✅ MySQL ONLY_FULL_GROUP_BY mode disabled');
   } catch (err) {
     console.error('❌ MySQL connection failed:', err);
     process.exit(1);
@@ -275,13 +282,17 @@ app.get('/api/call-history', async (req, res) => {
 });
 
 // ---------- Dashboard Stats API ----------
+
+// ========== FIX 3: Replace the dashboard stats route in server.js (around lines 190-220) ==========
+
+// ---------- Dashboard Stats API ----------
 app.get('/api/dashboard-stats', async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT
         COUNT(*) AS total_calls,
-        SUM(status IN ('Answered','Speaking','Listening','completed')) AS answered_calls,
-        SUM(status IN ('No Answer','Failed','Error','Busy')) AS failed_calls,
+        SUM(CASE WHEN status IN ('Answered','Speaking','Listening','completed') THEN 1 ELSE 0 END) AS answered_calls,
+        SUM(CASE WHEN status IN ('No Answer','Failed','Error','Busy') THEN 1 ELSE 0 END) AS failed_calls,
         ROUND(AVG(NULLIF(duration, 0))) AS avg_seconds
       FROM calls
       WHERE DATE(started_at) = CURDATE()
@@ -298,7 +309,7 @@ app.get('/api/dashboard-stats', async (req, res) => {
         COUNT(*) AS calls
       FROM calls
       WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-      GROUP BY DATE(started_at)
+      GROUP BY DATE(started_at), DATE_FORMAT(started_at, '%a')
       ORDER BY DATE(started_at)
     `);
 
@@ -316,7 +327,6 @@ app.get('/api/dashboard-stats', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 // ---------- Static files & routers ----------
 app.use(express.static(path.join(__dirname, "public"), {
   setHeaders: (res, filePath) => {
