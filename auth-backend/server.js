@@ -20,23 +20,9 @@ const app = express();
 const server = http.createServer(app);
 
 // ---------- Middleware ----------
-// ---------- Middleware ----------
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",                // React dev
-      "http://135.237.127.43:3000", 
-      "http://135.237.127.43:5000", // if you serve React from server
-      process.env.PUBLIC_URL    // your zrok frontend domain
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true, // allow cookies / auth headers
-  })
-);
-
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 
 // ---------- JWT Verification Middleware ----------
 const verifyToken = (req, res, next) => {
@@ -61,7 +47,7 @@ const verifyToken = (req, res, next) => {
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  port: process.env.DB_PORT || '3306',
+  port: process.env.DB_PORT || '3310',
   password: process.env.DB_PASS || process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'aivoicecaller'
 });
@@ -306,18 +292,15 @@ app.get('/api/dashboard-stats', async (req, res) => {
     const minutes = Math.floor(avgSec / 60);
     const seconds = avgSec % 60;
 
-const [weeklyData] = await db.query(`
-  SELECT 
-    DATE(started_at) AS call_date,
-    DATE_FORMAT(DATE(started_at), '%a') AS name,
-    COUNT(*) AS calls
-  FROM calls
-  WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-  GROUP BY DATE(started_at), DATE_FORMAT(DATE(started_at), '%a')
-  ORDER BY DATE(started_at)
-`);
-
-
+    const [weeklyData] = await db.query(`
+      SELECT 
+        DATE_FORMAT(started_at, '%a') AS name,
+        COUNT(*) AS calls
+      FROM calls
+      WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      GROUP BY DATE(started_at)
+      ORDER BY DATE(started_at)
+    `);
 
     res.json({
       stats: [
