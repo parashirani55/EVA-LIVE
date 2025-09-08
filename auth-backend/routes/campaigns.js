@@ -97,11 +97,16 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
     const greetingPrefix = "Hello {username}, I am EVA calling from {company}. ";
     const finalScript = script ? `${greetingPrefix}${script}` : greetingPrefix;
 
+    // FIX: Ensure no undefined values - convert to null
+    const cleanDescription = description || null;
+    const cleanCustomService = customService || null;
+    const cleanService = service || null;
+
     const [result] = await db.execute(
       `INSERT INTO campaigns
       (user_id, name, description, voice, script, file_path, service, custom_service, start_time, status, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled', NOW())`,
-      [req.user.id, name, description, voice, finalScript, filePath, service, customService, startTime]
+      [req.user.id, name, cleanDescription, voice, finalScript, filePath, cleanService, cleanCustomService, startTime]
     );
 
     console.log('Campaign created with ID:', result.insertId);
@@ -139,6 +144,11 @@ router.put('/:id', authMiddleware, upload.single('file'), async (req, res) => {
     const greetingPrefix = "Hello {username}, I am EVA calling from {company}. ";
     const finalScript = script ? `${greetingPrefix}${script}` : greetingPrefix;
 
+    // FIX: Ensure no undefined values - convert to null
+    const cleanDescription = description || null;
+    const cleanCustomService = customService || null;
+    const cleanService = service || null;
+
     // Update campaign
     await db.execute(
       `UPDATE campaigns SET
@@ -147,7 +157,7 @@ router.put('/:id', authMiddleware, upload.single('file'), async (req, res) => {
         service = ?, custom_service = ?, start_time = ?, 
         status = 'Scheduled', updated_at = NOW()
       WHERE id = ? AND user_id = ?`,
-      [name, description, voice, finalScript, filePath, service, customService, startTime, campaignId, req.user.id]
+      [name, cleanDescription, voice, finalScript, filePath, cleanService, cleanCustomService, startTime, campaignId, req.user.id]
     );
 
     res.json({ message: 'Campaign updated successfully' });
