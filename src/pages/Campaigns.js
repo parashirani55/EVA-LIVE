@@ -16,8 +16,7 @@ import {
 import { generateScript } from "../utils/generateScript";
 
 // Axios default
-axios.defaults.baseURL = process.env.REACT_APP_API_URL || "http://135.237.127.43:3000";
-
+axios.defaults.baseURL = "http://localhost:5000";
 
 // Axios interceptor for Authorization
 axios.interceptors.request.use((config) => {
@@ -127,21 +126,18 @@ function Campaigns() {
     fetchCampaigns();
   }, [token]);
 
-const fetchCampaigns = async () => {
-  setLoading(true);
-  try {
-    const res = await axios.get("http://135.237.127.43:5000/api/campaigns", {
-      withCredentials: true, // keep cookies/JWT if needed
-    });
-    setCampaigns(res.data || []);
-  } catch (err) {
-    console.error("Fetch campaigns error", err);
-    setCampaigns([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  const fetchCampaigns = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get("/api/campaigns");
+      setCampaigns(res.data || []);
+    } catch (err) {
+      console.error("Fetch campaigns error", err);
+      setCampaigns([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handle input changes
   const handleChange = (e) => {
