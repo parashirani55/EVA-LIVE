@@ -274,7 +274,7 @@ app.get('/api/call-history', async (req, res) => {
   }
 });
 
-// ---------- Dashboard Stats API ----------
+// ---------- Dashboard Stats API (FIXED) ----------
 app.get('/api/dashboard-stats', async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -292,16 +292,16 @@ app.get('/api/dashboard-stats', async (req, res) => {
     const minutes = Math.floor(avgSec / 60);
     const seconds = avgSec % 60;
 
-const [weeklyData] = await db.query(`
-  SELECT 
-    DATE_FORMAT(DATE(started_at), '%a') AS name,
-    COUNT(*) AS calls
-  FROM calls
-  WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-  GROUP BY DATE(started_at)
-  ORDER BY DATE(started_at)
-`);
-
+    // Fixed weekly data query - group by the same expression we're selecting
+    const [weeklyData] = await db.query(`
+      SELECT 
+        DATE_FORMAT(DATE(started_at), '%a') AS name,
+        COUNT(*) AS calls
+      FROM calls
+      WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      GROUP BY DATE_FORMAT(DATE(started_at), '%a'), DATE(started_at)
+      ORDER BY DATE(started_at)
+    `);
 
     res.json({
       stats: [
